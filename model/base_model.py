@@ -1,15 +1,23 @@
 import torch
 
+from utils import model
 
-class BaseLLM:
+
+class BaseModel:
     def __init__(self, device):
         self.device = device
+
+        self.key = model.match(self.get_name())
 
         self.model = None
         self.tokenizer = None
 
         self.yes_token = None
         self.no_token = None
+
+    @classmethod
+    def get_name(cls):
+        return cls.__name__.replace('Model', '').lower()
 
     def generate_input_ids(self, content) -> torch.Tensor:
         raise NotImplemented

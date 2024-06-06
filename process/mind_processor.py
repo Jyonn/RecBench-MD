@@ -12,8 +12,9 @@ class MINDProcessor(BaseProcessor):
     HIS_COL = 'history'
     CLK_COL = 'click'
 
-    def __init__(self, data_dir, store_dir):
-        super().__init__(data_dir=data_dir, store_dir=store_dir)
+    @property
+    def default_attrs(self):
+        return ['title']
 
     def load_items(self) -> pd.DataFrame:
         path = os.path.join(self.data_dir, 'train', 'news.tsv')
@@ -34,6 +35,11 @@ class MINDProcessor(BaseProcessor):
         )
 
         users['history'] = users['history'].str.split()
+
+        # remove users without history
+        users = users.dropna(subset=['history'])
+        users = users[users['history'].map(lambda x: len(x) > 0)]
+
         return users
 
     def load_interactions(self) -> pd.DataFrame:

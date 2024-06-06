@@ -1,18 +1,20 @@
+import abc
+
 import torch
 
 from transformers.models.bert import BertForMaskedLM
 from transformers.models.bert.tokenization_bert import BertTokenizer
 
 from config import SIMPLE_SYSTEM, SIMPLE_SUFFIX
-from llm.base_llm import BaseLLM
+from model.base_model import BaseModel
 
 
-class Bert(BaseLLM):
+class BertModel(BaseModel, abc.ABC):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self.model = BertForMaskedLM.from_pretrained('bert-base-uncased')  # type: BertForMaskedLM
-        self.tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')  # type: BertTokenizer
+        self.model = BertForMaskedLM.from_pretrained(self.key)  # type: BertForMaskedLM
+        self.tokenizer = BertTokenizer.from_pretrained(self.key)  # type: BertTokenizer
 
         self.cls_token = self.tokenizer.convert_tokens_to_ids('[CLS]')
         self.mask_token = self.tokenizer.convert_tokens_to_ids('[MASK]')
@@ -32,3 +34,11 @@ class Bert(BaseLLM):
 
         # convert to tensor
         return torch.tensor(input_ids).unsqueeze(0)
+
+
+class BertBaseModel(BertModel):
+    pass
+
+
+class BertLargeModel(BertModel):
+    pass
