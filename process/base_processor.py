@@ -1,9 +1,7 @@
 import abc
 import os.path
-import pdb
 import random
 
-import numpy as np
 import pandas as pd
 from pigmento import pnt
 
@@ -35,7 +33,7 @@ class BaseProcessor(abc.ABC):
         self.finetune_set = None
 
     @property
-    def default_attr(self):
+    def default_attrs(self):
         raise None
 
     @classmethod
@@ -51,8 +49,14 @@ class BaseProcessor(abc.ABC):
     def load_interactions(self) -> pd.DataFrame:
         raise NotImplemented
 
+    def _stringify(self, df: pd.DataFrame):
+        if self.IID_COL in df.columns:
+            df[self.IID_COL] = df[self.IID_COL].astype(str)
+        if self.UID_COL in df.columns:
+            df[self.UID_COL] = df[self.UID_COL].astype(str)
+        return df
+
     def load(self):
-        # if exists, load from store
         if os.path.exists(os.path.join(self.store_dir, 'items.parquet')) and \
                 os.path.exists(os.path.join(self.store_dir, 'users.parquet')) and \
                 os.path.exists(os.path.join(self.store_dir, 'interactions.parquet')):
@@ -72,18 +76,13 @@ class BaseProcessor(abc.ABC):
             self.interactions = self.load_interactions()
             pnt('loaded interactions')
 
-            if self.cache:
-                self.items.to_parquet(os.path.join(self.store_dir, 'items.parquet'))
-                self.users.to_parquet(os.path.join(self.store_dir, 'users.parquet'))
-                self.interactions.to_parquet(os.path.join(self.store_dir, 'interactions.parquet'))
+        self.items = self._stringify(self.items)
+        self.users = self._stringify(self.users)
+        self.interactions = self._stringify(self.interactions)
 
-        self.items[self.IID_COL] = self.items[self.IID_COL].astype(str)
-        self.users[self.UID_COL] = self.users[self.UID_COL].astype(str)
         self.users[self.HIS_COL] = self.users[self.HIS_COL].apply(
             lambda x: [str(item) for item in x]
         )
-        self.interactions[self.IID_COL] = self.interactions[self.IID_COL].astype(str)
-        self.interactions[self.UID_COL] = self.interactions[self.UID_COL].astype(str)
 
         self.item_vocab = dict(zip(self.items[self.IID_COL], self.items.index))
         self.user_vocab = dict(zip(self.users[self.UID_COL], self.users.index))
@@ -101,7 +100,7 @@ class BaseProcessor(abc.ABC):
     def generate(self, max_len, item_attrs=None):
         self.load()
 
-        item_attrs = item_attrs or self.default_attr
+        item_attrs = item_attrs or self.default_attrs
         # iterate interactions
         for _, row in self.interactions.iterrows():
             uid = row[self.UID_COL]
@@ -129,7 +128,7 @@ class BaseProcessor(abc.ABC):
                 break
         return df
 
-    def load_user_order(self):
+    def _load_user_order(self):
         # check if user order exists
         if os.path.exists(os.path.join(self.store_dir, 'user_order.txt')):
             with open(os.path.join(self.store_dir, 'user_order.txt'), 'r') as f:
@@ -149,16 +148,22 @@ class BaseProcessor(abc.ABC):
                 os.path.exists(os.path.join(self.store_dir, 'finetune.parquet')):
             pnt(f'loading {self.get_name()} from cache')
 
-            self.test_set = pd.read_parquet(os.path.join(self.store_dir, 'test.parquet'))
-            pnt('loaded test set')
-            self.finetune_set = pd.read_parquet(os.path.join(self.store_dir, 'finetune.parquet'))
-            pnt('loaded finetune set')
+            if self.NUM_TEST:
+                self.test_set = pd.read_parquet(os.path.join(self.store_dir, 'test.parquet'))
+                self.test_set = self._stringify(self.test_set)
+                pnt('loaded test set')
+
+            if self.NUM_FINETUNE:
+                self.finetune_set = pd.read_parquet(os.path.join(self.store_dir, 'finetune.parquet'))
+                self.finetune_set = self._stringify(self.finetune_set)
+                pnt('loaded finetune set')
+
             return
 
         pnt(f'processing {self.get_name()} from item, user, and interaction data')
         self.load()
 
-        users_order = self.load_user_order()
+        users_order = self._load_user_order()
         interactions = self.interactions.groupby(self.UID_COL)
 
         iterator = self._group_iterator(users_order, interactions)

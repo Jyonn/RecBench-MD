@@ -1,5 +1,4 @@
 import os
-import re
 import pandas as pd
 from process.base_processor import BaseProcessor
 
@@ -26,7 +25,7 @@ class MovieLensProcessor(BaseProcessor):
             sep='::',
             header=None,
             names=['mid', 'title', 'genres'],
-            # engine='python',
+            engine='python',encoding="ISO-8859-1"
         )
         # movie title may exist special characters, so we need to remove them
         movies['title'] = movies['title'].str.replace(r'[^A-Za-z0-9 ]+', '')
@@ -38,7 +37,7 @@ class MovieLensProcessor(BaseProcessor):
             sep='::',
             header=None,
             names=['uid', 'mid', 'rating', 'ts'],
-            # engine='python'
+            engine='python'
         )
 
         ratings = ratings[ratings['rating'] > 3]
@@ -60,7 +59,7 @@ class MovieLensProcessor(BaseProcessor):
             sep='::',
             header=None,
             names=['uid', 'mid', 'rating', 'ts'],
-            # engine='python'
+            engine='python'
         )
 
         interactions = interactions[interactions['rating'] < 3]
