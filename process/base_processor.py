@@ -78,6 +78,11 @@ class BaseProcessor(abc.ABC):
             self.interactions = self.load_interactions()
             pnt('loaded interactions')
 
+            if self.cache:
+                self.items.to_parquet(os.path.join(self.store_dir, 'items.parquet'))
+                self.users.to_parquet(os.path.join(self.store_dir, 'users.parquet'))
+                self.interactions.to_parquet(os.path.join(self.store_dir, 'interactions.parquet'))
+
         self.items = self._stringify(self.items)
         self.users = self._stringify(self.users)
         self.interactions = self._stringify(self.interactions)

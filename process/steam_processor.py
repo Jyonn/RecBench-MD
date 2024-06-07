@@ -6,7 +6,7 @@ from process.base_ns_processor import NSProcessor
 from process.base_uspe_processor import USPEProcessor
 
 
-class SteamSamplingProcessor(NSProcessor, USPEProcessor):
+class SteamProcessor(NSProcessor, USPEProcessor):
     IID_COL = 'app_id'
     UID_COL = 'user_id'
     HIS_COL = 'history'

@@ -5,7 +5,7 @@ import pandas as pd
 from process.base_uict_processor import UICTProcessor
 
 
-class YelpSamplingProcessor(UICTProcessor):
+class YelpProcessor(UICTProcessor):
     UID_COL = 'user_id'
     IID_COL = 'business_id'
     HIS_COL = 'history'
@@ -39,7 +39,7 @@ class YelpSamplingProcessor(UICTProcessor):
 
         interactions['stars'] = interactions['stars'].astype(int)
         interactions = interactions[interactions['stars'] != 3]
-        interactions['click'] = int(interactions['stars'] >= 4)
+        interactions['click'] = interactions['stars'].apply(lambda x: int(x > 3))
         interactions = interactions.drop(columns=['stars'])
 
         interactions['date'] = pd.to_datetime(interactions['date'])

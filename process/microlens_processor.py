@@ -5,7 +5,7 @@ from process.base_ns_processor import NSProcessor
 from process.base_uspe_processor import USPEProcessor
 
 
-class MicroLensSamplingProcessor(NSProcessor, USPEProcessor):
+class MicroLensProcessor(NSProcessor, USPEProcessor):
     IID_COL = 'item'
     UID_COL = 'user'
     HIS_COL = 'history'
