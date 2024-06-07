@@ -4,9 +4,6 @@ import os
 class Exporter:
     def __init__(self, path):
         self.path = path
-        with open(path, 'w'):
-            pass
-
         self.error_path = path + '.progress'
 
     def write(self, data):
