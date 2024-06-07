@@ -15,6 +15,7 @@ class BertModel(BaseModel, abc.ABC):
 
         self.model = BertForMaskedLM.from_pretrained(self.key)  # type: BertForMaskedLM
         self.tokenizer = BertTokenizer.from_pretrained(self.key)  # type: BertTokenizer
+        self.max_len = self.model.config.max_position_embeddings
 
         self.cls_token = self.tokenizer.convert_tokens_to_ids('[CLS]')
         self.mask_token = self.tokenizer.convert_tokens_to_ids('[MASK]')

@@ -1,9 +1,13 @@
 import abc
 import os.path
 import random
+from typing import Union, Callable
 
 import pandas as pd
+import pigmento
 from pigmento import pnt
+
+pigmento.add_time_prefix()
 
 
 class BaseProcessor(abc.ABC):
@@ -64,19 +68,19 @@ class BaseProcessor(abc.ABC):
                 os.path.exists(os.path.join(self.store_dir, 'interactions.parquet')):
             pnt(f'loading {self.get_name()} from cache')
             self.items = pd.read_parquet(os.path.join(self.store_dir, 'items.parquet'))
-            pnt('loaded items')
+            pnt(f'loaded {len(self.items)} items')
             self.users = pd.read_parquet(os.path.join(self.store_dir, 'users.parquet'))
-            pnt('loaded users')
+            pnt(f'loaded {len(self.users)} users')
             self.interactions = pd.read_parquet(os.path.join(self.store_dir, 'interactions.parquet'))
-            pnt('loaded interactions')
+            pnt(f'loaded {len(self.interactions)} interactions')
         else:
             pnt(f'loading {self.get_name()} from raw data')
             self.items = self.load_items()
-            pnt('loaded items')
+            pnt(f'loaded {len(self.items)} items')
             self.users = self.load_users()
-            pnt('loaded users')
+            pnt(f'loaded {len(self.users)} users')
             self.interactions = self.load_interactions()
-            pnt('loaded interactions')
+            pnt(f'loaded {len(self.interactions)} interactions')
 
             if self.cache:
                 self.items.to_parquet(os.path.join(self.store_dir, 'items.parquet'))
@@ -127,6 +131,42 @@ class BaseProcessor(abc.ABC):
             yield uid, candidate, history_str, candidate_str, click
 
     @staticmethod
+    def _build_slicer(slicer: int):
+        def _slicer(x):
+            return x[:slicer] if slicer > 0 else x[slicer:]
+        return _slicer
+
+    def generate(self, slicer: Union[int, Callable], item_attrs=None, source='test'):
+        """
+        generate test or finetune set
+        :param slicer: user sequence slicer
+        :param item_attrs: item attributes to show
+        :param source: test or finetune
+        """
+        if not self._loaded:
+            raise RuntimeError('Datasets not loaded')
+
+        assert source in ['test', 'finetune'], 'source must be test or finetune'
+        source_set = getattr(self, f'{source}_set')
+
+        # unify slicer to function
+        if isinstance(slicer, int):
+            slicer = self._build_slicer(slicer)
+        item_attrs = item_attrs or self.default_attrs
+
+        for _, row in source_set.iterrows():
+            uid = row[self.UID_COL]
+            candidate = row[self.IID_COL]
+            click = row[self.CLK_COL]
+
+            user = self.users.loc[self.user_vocab[uid]]
+            history = slicer(user[self.HIS_COL])
+            history_str = [self._organize_item(iid, item_attrs) for iid in history]
+            candidate_str = self._organize_item(candidate, item_attrs)
+
+            yield uid, candidate, history_str, candidate_str, click
+
+    @staticmethod
     def _group_iterator(users, interactions):
         for u in users:
             yield interactions.get_group(u)
@@ -135,7 +175,7 @@ class BaseProcessor(abc.ABC):
     def _split(iterator, count):
         df = pd.DataFrame()
         for group in iterator:
-            df = df.append(group)
+            df = pd.concat([df, group])
             if len(df) >= count:
                 break
         return df

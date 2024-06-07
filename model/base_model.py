@@ -1,3 +1,5 @@
+from typing import Optional
+
 import torch
 
 from utils import model
@@ -11,6 +13,7 @@ class BaseModel:
 
         self.model = None
         self.tokenizer = None
+        self.max_len = None
 
         self.yes_token = None
         self.no_token = None
@@ -22,9 +25,13 @@ class BaseModel:
     def generate_input_ids(self, content) -> torch.Tensor:
         raise NotImplemented
 
-    def ask(self, content) -> float:
+    def ask(self, content) -> Optional[float]:
         input_ids = self.generate_input_ids(content)
         input_ids = input_ids.to(self.device)
+
+        input_len = input_ids.size(-1)
+        if input_len > self.max_len:
+            return
 
         # feed-forward
         with torch.no_grad():

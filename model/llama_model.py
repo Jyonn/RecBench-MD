@@ -12,6 +12,7 @@ class LlamaModel(BaseModel, abc.ABC):
 
         self.model = LlamaForCausalLM.from_pretrained(self.key)  # type: LlamaForCausalLM
         self.tokenizer = LlamaTokenizer.from_pretrained(self.key)
+        self.max_len = self.model.config.max_position_embeddings
 
         self.yes_token = self.tokenizer.convert_tokens_to_ids('YES')
         self.no_token = self.tokenizer.convert_tokens_to_ids('NO')

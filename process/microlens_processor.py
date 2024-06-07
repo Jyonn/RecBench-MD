@@ -27,19 +27,17 @@ class MicroLensProcessor(NSProcessor, USPEProcessor):
         return titles_df[[self.IID_COL, 'title']]
 
     def load_users(self) -> pd.DataFrame:
-        path = os.path.join(self.data_dir, 'MicroLens-50k_pairs.tsv')
+        path = os.path.join(self.data_dir, 'MicroLens-50k_pairs.csv')
         interactions = pd.read_csv(
             filepath_or_buffer=path,
             sep='\t',
-            header=None,
-            names=[self.UID_COL, self.IID_COL, 'ts']
         )
         interactions = self._stringify(interactions)
 
         self._get_user_dict_from_interactions(interactions)
 
         users = interactions.sort_values(
-            [self.UID_COL, 'ts']
+            [self.UID_COL, 'timestamp']
         ).groupby(self.UID_COL)[self.IID_COL].apply(list).reset_index()
         users.columns = [self.UID_COL, self.HIS_COL]
 

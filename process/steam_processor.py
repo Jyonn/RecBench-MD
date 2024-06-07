@@ -12,7 +12,7 @@ class SteamProcessor(NSProcessor, USPEProcessor):
     HIS_COL = 'history'
     CLK_COL = 'click'
 
-    POS_RATIO = 2
+    POS_COUNT = 2
     NEG_RATIO = 2
 
     NUM_TEST = 20000
@@ -26,10 +26,9 @@ class SteamProcessor(NSProcessor, USPEProcessor):
         apps = pd.read_csv(os.path.join(self.data_dir, "App_ID_Info.txt"), header=None)
         apps = apps.iloc[:, [0, 1]]
 
-        apps.columns = ['app_id', 'title']
+        apps.columns = [self.IID_COL, 'title']
         apps['title'] = apps['title'].apply(lambda x: x.encode('latin1').decode('utf-8', 'ignore'))
-
-        return apps
+        return self._stringify(apps)
 
     def load_users(self) -> pd.DataFrame:
         item_set = set(self.items[self.IID_COL].unique())

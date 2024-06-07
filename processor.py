@@ -1,12 +1,12 @@
-# from process.mind_processor import MINDProcessor
-from process.goodreads_processor import GoodreadsSamplingProcessor
+from process.mind_processor import MINDProcessor
+from process.goodreads_processor import GoodreadsProcessor
 
-# processor = MINDProcessor(
-#     data_dir='/data1/qijiong/Data/MIND/',
-# )
-processor = GoodreadsSamplingProcessor(
-    data_dir='/data_8T2/qijiong/Data/Goodreads/',
+processor = MINDProcessor(
+    data_dir='/data1/qijiong/Data/MIND/',
 )
+# processor = GoodreadsProcessor(
+#     data_dir='/data_8T2/qijiong/Data/Goodreads/',
+# )
 processor.load()
 
 # processor.load_public_sets()

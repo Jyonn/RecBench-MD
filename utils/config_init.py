@@ -36,7 +36,7 @@ class ConfigInit:
                 kwargs[arg] = self.default_args[arg]
 
         config = RefConfig().add(refconfig.CType.SMART, **kwargs)
-        config = config.add(refconfig.CType.RAW, rand=Rand(), time=Timing()).parse()
+        config = config.add(refconfig.CType.RAW).parse()
 
         for makedir in self.makedirs:
             dir_name = PathSearcher.search(config, makedir)
