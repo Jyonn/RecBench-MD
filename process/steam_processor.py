@@ -2,17 +2,21 @@ import os
 
 import pandas as pd
 
-from process.neg_processor import NegProcessor
+from process.base_ns_processor import NSProcessor
+from process.base_uspe_processor import USPEProcessor
 
 
-class SteamProcessor(NegProcessor):
+class SteamSamplingProcessor(NSProcessor, USPEProcessor):
     IID_COL = 'app_id'
     UID_COL = 'user_id'
     HIS_COL = 'history'
     CLK_COL = 'click'
 
-    NUM_TEST = 20000  # test number #指定测试数量 前10个是固定的，后5个为0
-    NUM_FINETUNE = 100000  # 固定的数量
+    POS_RATIO = 2
+    NEG_RATIO = 2
+
+    NUM_TEST = 20000
+    NUM_FINETUNE = 100000
 
     @property
     def default_attrs(self):
@@ -31,21 +35,19 @@ class SteamProcessor(NegProcessor):
         item_set = set(self.items[self.IID_COL].unique())
 
         path = os.path.join(self.data_dir, 'train_game.txt')
+        self._user_dict = dict()
+
         users = []
-        self.user_dict = dict()
-        pos_inters = []
 
         with open(path, 'r') as f:
             for line in f:
                 data = line.strip().split(',')
                 uid, his = data[0], data[1:]
                 his = list(filter(lambda x: x in item_set, his))
-                if len(his) < 2:
-                    continue
-                self.user_dict[uid] = set(his)
-                users.append({'user_id': uid, 'history': his[:-2]})
-                pos_inters.append({'user_id': uid, 'app_id': his[-2], 'click': 1})
-                pos_inters.append({'user_id': uid, 'app_id': his[-1], 'click': 1})
+                self._user_dict[uid] = set(his)
+                users.append({self.UID_COL: uid, self.HIS_COL: his})
 
-        self.pos_inters = pd.DataFrame(pos_inters)
+        users = pd.DataFrame(users)
+        self._extract_pos_samples(users)
+
         return pd.DataFrame(users)

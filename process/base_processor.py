@@ -7,13 +7,13 @@ from pigmento import pnt
 
 
 class BaseProcessor(abc.ABC):
-    IID_COL = 'iid'
-    UID_COL = 'uid'
-    HIS_COL = 'history'
-    CLK_COL = 'click'
+    IID_COL: str
+    UID_COL: str
+    HIS_COL: str
+    CLK_COL: str
 
-    NUM_TEST = 20000
-    NUM_FINETUNE = 100000
+    NUM_TEST: int
+    NUM_FINETUNE: int
 
     def __init__(self, data_dir=None, cache=True):
         self.data_dir = data_dir
@@ -21,6 +21,8 @@ class BaseProcessor(abc.ABC):
         os.makedirs(self.store_dir, exist_ok=True)
 
         self.cache = cache
+
+        self._loaded = False
 
         self.items = None
         self.users = None
@@ -87,6 +89,10 @@ class BaseProcessor(abc.ABC):
         self.item_vocab = dict(zip(self.items[self.IID_COL], self.items.index))
         self.user_vocab = dict(zip(self.users[self.UID_COL], self.users.index))
 
+        self.load_public_sets()
+
+        self._loaded = True
+
     def _organize_item(self, iid, item_attrs: list):
         item = self.items.loc[self.item_vocab[iid]]
         if len(item_attrs) == 1:
@@ -97,8 +103,9 @@ class BaseProcessor(abc.ABC):
             item_str.append(f'{attr}: {item[attr]}')
         return ', '.join(item_str)
 
-    def generate(self, max_len, item_attrs=None):
-        self.load()
+    def iterate(self, max_len=10, item_attrs=None):
+        if not self._loaded:
+            raise RuntimeError('Datasets not loaded')
 
         item_attrs = item_attrs or self.default_attrs
         # iterate interactions
@@ -143,7 +150,7 @@ class BaseProcessor(abc.ABC):
 
         return users
 
-    def process(self):
+    def load_public_sets(self):
         if os.path.exists(os.path.join(self.store_dir, 'test.parquet')) and \
                 os.path.exists(os.path.join(self.store_dir, 'finetune.parquet')):
             pnt(f'loading {self.get_name()} from cache')
@@ -161,7 +168,6 @@ class BaseProcessor(abc.ABC):
             return
 
         pnt(f'processing {self.get_name()} from item, user, and interaction data')
-        self.load()
 
         users_order = self._load_user_order()
         interactions = self.interactions.groupby(self.UID_COL)

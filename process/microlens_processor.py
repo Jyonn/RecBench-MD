@@ -1,14 +1,21 @@
 import os
 
 import pandas as pd
-from process.neg_processor import NegProcessor
+from process.base_ns_processor import NSProcessor
+from process.base_uspe_processor import USPEProcessor
 
 
-class MicroLensProcessor(NegProcessor):
+class MicroLensSamplingProcessor(NSProcessor, USPEProcessor):
     IID_COL = 'item'
     UID_COL = 'user'
     HIS_COL = 'history'
     CLK_COL = 'click'
+
+    POS_COUNT = 2
+    NEG_RATIO = 2
+
+    NUM_TEST = 20000
+    NUM_FINETUNE = 100000
 
     @property
     def default_attrs(self):
@@ -29,18 +36,13 @@ class MicroLensProcessor(NegProcessor):
         )
         interactions = self._stringify(interactions)
 
-        self.user_dict = dict()
-        for idx, row in interactions.iterrows():
-            user_id = row[self.UID_COL]
-            item_id = row[self.IID_COL]
-            if user_id not in self.user_dict:
-                self.user_dict[user_id] = set()
-            self.user_dict[user_id].add(item_id)
+        self._get_user_dict_from_interactions(interactions)
 
         users = interactions.sort_values(
-            [self.UID_COL, 'timestamp']
+            [self.UID_COL, 'ts']
         ).groupby(self.UID_COL)[self.IID_COL].apply(list).reset_index()
-
         users.columns = [self.UID_COL, self.HIS_COL]
-        users = self._generate_pos_inters_from_history(users)
+
+        self._extract_pos_samples(users)
+
         return users

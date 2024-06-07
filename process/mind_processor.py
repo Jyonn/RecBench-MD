@@ -12,6 +12,9 @@ class MINDProcessor(BaseProcessor):
     HIS_COL = 'history'
     CLK_COL = 'click'
 
+    NUM_TEST = 20000
+    NUM_FINETUNE = 100000
+
     @property
     def default_attrs(self):
         return ['title']

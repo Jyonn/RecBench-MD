@@ -46,7 +46,7 @@ class Worker:
         raise ValueError(f'Unknown model/service: {self.model}')
 
     def run(self):
-        for uid, iid, history, candidate, click in self.processor.generate(max_len=20, item_attrs=['title']):
+        for uid, iid, history, candidate, click in self.processor.iterate():
             pass
 
 
