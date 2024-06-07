@@ -1,7 +1,7 @@
 import openai
 
 from config import CHAT_SYSTEM
-from sdk.base_service import BaseService
+from service.base_service import BaseService
 
 
 class GPTService(BaseService):

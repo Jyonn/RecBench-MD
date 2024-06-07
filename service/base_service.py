@@ -1,3 +1,6 @@
+import time
+
+
 class BaseService:
     def __init__(self, auth):
         self.auth = auth
@@ -8,3 +11,7 @@ class BaseService:
 
     def ask(self, content) -> str:
         pass
+
+    def __call__(self, content):
+        time.sleep(1)
+        return self.ask(content)

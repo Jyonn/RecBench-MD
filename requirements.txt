@@ -1,7 +1,7 @@
 torch
 pigmento
 anthropic
-openai
+openai==0.28.0
 transformers
 tqdm
 pandas

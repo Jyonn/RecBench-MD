@@ -1,5 +1,5 @@
-from sdk.claude_service import ClaudeService, Claude3Service, Claude21Service
-from sdk.gpt_service import GPT35Service, GPT4Service
+from service.claude_service import ClaudeService, Claude3Service, Claude21Service
+from service.gpt_service import GPT35Service, GPT4Service
 from utils.auth import GPT_KEY, CLAUDE_KEY
 
 content = """User behavior sequence:

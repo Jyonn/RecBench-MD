@@ -46,3 +46,6 @@ class BaseModel:
         softmax = torch.nn.Softmax(dim=0)
         yes_prob, _ = softmax(torch.tensor([yes_score, no_score])).tolist()
         return yes_prob
+
+    def __call__(self, content):
+        return self.ask(content)

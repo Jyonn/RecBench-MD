@@ -7,9 +7,9 @@ from model.bert_model import BertBaseModel, BertLargeModel
 from model.llama_model import Llama1Model
 from model.opt_model import OPT1BModel, OPT350MModel
 from process.mind_processor import MINDProcessor
-from sdk.base_service import BaseService
-from sdk.claude_service import Claude21Service, Claude3Service
-from sdk.gpt_service import GPT4Service, GPT35Service
+from service.base_service import BaseService
+from service.claude_service import Claude21Service, Claude3Service
+from service.gpt_service import GPT4Service, GPT35Service
 from utils.auth import GPT_KEY, CLAUDE_KEY
 from utils.config_init import ConfigInit
 from utils.gpu import GPU
@@ -23,7 +23,6 @@ class Worker:
             Claude21Service(auth=CLAUDE_KEY), Claude3Service(auth=CLAUDE_KEY)
         ]
         self.models = [BertBaseModel, BertLargeModel, Llama1Model, OPT1BModel, OPT350MModel]
-        self.device = GPU.auto_choose(torch_format=True)
 
         self.conf = conf
         self.data = conf.data.lower()
@@ -33,6 +32,8 @@ class Worker:
         self.processor.load()
         self.caller = self.load_model_or_service()  # type: Union[BaseService, BaseModel]
         self.use_service = isinstance(self.caller, BaseService)
+
+        self.device = None if self.use_service else GPU.auto_choose(torch_format=True)
 
     def load_processor(self):
         for dataset in self.datasets:
@@ -74,7 +75,7 @@ class Worker:
 
             for i in range(len(history), 1, -1):
                 input_sequence = input_template.format('\n'.join(history[:i]), candidate)
-                response = self.caller.ask(input_sequence)
+                response = self.caller(input_sequence)
                 if response is not None:
                     break
             if response is None:
