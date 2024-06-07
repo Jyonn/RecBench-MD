@@ -16,6 +16,8 @@ class BaseProcessor(abc.ABC):
     NUM_TEST: int
     NUM_FINETUNE: int
 
+    MAX_INTERACTIONS_PER_USER: int = 20
+
     def __init__(self, data_dir=None, cache=True):
         self.data_dir = data_dir
         self.store_dir = os.path.join('data', self.get_name())
@@ -97,8 +99,6 @@ class BaseProcessor(abc.ABC):
 
         self.load_public_sets()
 
-        self._loaded = True
-
     def _organize_item(self, iid, item_attrs: list):
         item = self.items.loc[self.item_vocab[iid]]
         if len(item_attrs) == 1:
@@ -168,11 +168,13 @@ class BaseProcessor(abc.ABC):
         for u in users:
             yield interactions.get_group(u)
 
-    @staticmethod
-    def _split(iterator, count):
+    def _split(self, iterator, count):
         df = pd.DataFrame()
         for group in iterator:
-            df = pd.concat([df, group])
+            for click in range(2):
+                group_click = group[group[self.CLK_COL] == click]
+                selected_group_click = group_click.sample(n=min(self.MAX_INTERACTIONS_PER_USER // 2, len(group_click)), replace=False)
+                df = pd.concat([df, selected_group_click])
             if len(df) >= count:
                 break
         return df
@@ -226,3 +228,5 @@ class BaseProcessor(abc.ABC):
             self.finetune_set.reset_index(drop=True, inplace=True)
             self.finetune_set.to_parquet(os.path.join(self.store_dir, 'finetune.parquet'))
             pnt(f'generated finetune set with {len(self.finetune_set)}/{self.NUM_FINETUNE} samples')
+
+        self._loaded = True

@@ -3,19 +3,17 @@ import pandas as pd
 from process.base_uict_processor import UICTProcessor
 
 
-class MovieLensProcessor(UICTProcessor):
-    IID_COL = 'mid'
-    UID_COL = 'uid'
+class MovieLens20MProcessor(UICTProcessor):
+    IID_COL = 'movieId'
+    UID_COL = 'userId'
     HIS_COL = 'his'
     CLK_COL = 'click'
-    DAT_COL = 'ts'
+    DAT_COL = 'timestamp'
 
     POS_COUNT = 2
 
     NUM_TEST = 20000
     NUM_FINETUNE = 100000
-
-    # MAX_INTERACTIONS_PER_USER = 50
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -27,12 +25,12 @@ class MovieLensProcessor(UICTProcessor):
         return ['title']
 
     def load_items(self) -> pd.DataFrame:
-        path = os.path.join(self.data_dir, 'movies.dat')
+        path = os.path.join(self.data_dir, 'movies.csv')
         movies = pd.read_csv(
             filepath_or_buffer=path,
-            sep='::',
-            header=None,
-            names=['mid', 'title', 'genres'],
+            sep=',',
+            # header=None,
+            # names=['mid', 'title', 'genres'],
             engine='python',
             encoding="ISO-8859-1",
         )
@@ -42,10 +40,10 @@ class MovieLensProcessor(UICTProcessor):
 
     def load_users(self) -> pd.DataFrame:
         interactions = pd.read_csv(
-            filepath_or_buffer=os.path.join(self.data_dir, 'ratings.dat'),
-            sep='::',
-            header=None,
-            names=[self.UID_COL, self.IID_COL, 'rating', self.DAT_COL],
+            filepath_or_buffer=os.path.join(self.data_dir, 'ratings.csv'),
+            sep=',',
+            # header=None,
+            # names=[self.UID_COL, self.IID_COL, 'rating', self.DAT_COL],
             engine='python'
         )
 
