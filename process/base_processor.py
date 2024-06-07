@@ -1,13 +1,10 @@
 import abc
 import os.path
 import random
-from typing import Union, Callable
+from typing import Union, Callable, Optional
 
 import pandas as pd
-import pigmento
 from pigmento import pnt
-
-pigmento.add_time_prefix()
 
 
 class BaseProcessor(abc.ABC):
@@ -24,19 +21,19 @@ class BaseProcessor(abc.ABC):
         self.store_dir = os.path.join('data', self.get_name())
         os.makedirs(self.store_dir, exist_ok=True)
 
-        self.cache = cache
+        self.cache: bool = cache
 
-        self._loaded = False
+        self._loaded: bool = False
 
-        self.items = None
-        self.users = None
-        self.interactions = None
+        self.items: Optional[pd.DataFrame] = None
+        self.users: Optional[pd.DataFrame] = None
+        self.interactions: Optional[pd.DataFrame] = None
 
-        self.item_vocab = None
-        self.user_vocab = None
+        self.item_vocab: Optional[dict] = None
+        self.user_vocab: Optional[dict] = None
 
-        self.test_set = None
-        self.finetune_set = None
+        self.test_set: Optional[pd.DataFrame] = None
+        self.finetune_set: Optional[pd.DataFrame] = None
 
     @property
     def default_attrs(self):

@@ -1,28 +1,39 @@
+import os.path
 from typing import Union, Optional
 
+import pigmento
 from pigmento import pnt
+from tqdm import tqdm
 
 from model.base_model import BaseModel
 from model.bert_model import BertBaseModel, BertLargeModel
-from model.llama_model import Llama1Model
+from model.llama_model import Llama1Model, Llama2Model
 from model.opt_model import OPT1BModel, OPT350MModel
+from process.microlens_processor import MicroLensProcessor
 from process.mind_processor import MINDProcessor
+from process.movielens_processor import MovieLensProcessor
+from process.steam_processor import SteamProcessor
+from process.yelp_processor import YelpProcessor
 from service.base_service import BaseService
 from service.claude_service import Claude21Service, Claude3Service
 from service.gpt_service import GPT4Service, GPT35Service
 from utils.auth import GPT_KEY, CLAUDE_KEY
 from utils.config_init import ConfigInit
+from utils.export import Exporter
 from utils.gpu import GPU
+
+
+pigmento.add_time_prefix()
 
 
 class Worker:
     def __init__(self, conf):
-        self.datasets = [MINDProcessor]
+        self.datasets = [MINDProcessor, MicroLensProcessor, MovieLensProcessor, SteamProcessor, YelpProcessor]
         self.services = [
             GPT35Service(auth=GPT_KEY), GPT4Service(auth=GPT_KEY),
             Claude21Service(auth=CLAUDE_KEY), Claude3Service(auth=CLAUDE_KEY)
         ]
-        self.models = [BertBaseModel, BertLargeModel, Llama1Model, OPT1BModel, OPT350MModel]
+        self.models = [BertBaseModel, BertLargeModel, Llama1Model, OPT1BModel, OPT350MModel, Llama2Model]
 
         self.conf = conf
         self.data = conf.data.lower()
@@ -33,7 +44,10 @@ class Worker:
         self.caller = self.load_model_or_service()  # type: Union[BaseService, BaseModel]
         self.use_service = isinstance(self.caller, BaseService)
 
-        self.device = None if self.use_service else GPU.auto_choose(torch_format=True)
+        self.log_dir = os.path.join('export', self.data)
+        os.makedirs(self.log_dir, exist_ok=True)
+        pigmento.add_log_plugin(os.path.join(self.log_dir, f'{self.model}.log'))
+        self.exporter = Exporter(os.path.join(self.log_dir, f'{self.model}.dat'))
 
     def load_processor(self):
         for dataset in self.datasets:
@@ -46,7 +60,7 @@ class Worker:
         for model in self.models:
             if model.get_name() == self.model:
                 pnt(f'loading {model.get_name()} model')
-                return model(device=self.device)
+                return model(device=GPU.auto_choose(torch_format=True))
         for service in self.services:
             if service.get_name() == self.model:
                 pnt(f'loading {service.get_name()} service')
@@ -54,19 +68,15 @@ class Worker:
         raise ValueError(f'Unknown model/service: {self.model}')
 
     def run(self):
-        count = 0
-        input_template = """User behavior sequence: {0}\n Candidate item: {1}"""
-        for uid, iid, history, candidate, click in self.processor.generate(slicer=self.conf.slicer):
-            # print(f'User: {uid}, Item: {iid}, History, Click: {click}')
-            # print(f'History:')
-            # for i, h in enumerate(history):
-            #     print(f'\t{i:2d}: {h}')
-            # print(f'Candidate: {candidate}')
-            # (1) The Difference Between Green and Orange Antifreeze
-            # (2) Road built by biblical villain uncovered in Jerusalem
-            # (3) Boat inches closer to Niagara Falls edge after being grounded for century
-            # (4) 24 Ways to Shrink Your Belly in 24 Hours
-            # Candidate item: UFC Tampa results: Jedrzejczyk dominates Waterson
+        input_template = """User behavior sequence: \n{0}\nCandidate item: {1}"""
+
+        progress = self.exporter.load_progress()
+        pnt(f'directly start from {progress}')
+        for index, data in enumerate(self.processor.generate(slicer=self.conf.slicer)):
+            if index < progress:
+                continue
+
+            uid, iid, history, candidate, click = data
 
             for i in range(len(history)):
                 history[i] = f'({i + 1}) {history[i]}'
@@ -79,18 +89,19 @@ class Worker:
                 if response is not None:
                     break
             if response is None:
-                pnt(uid, iid)
-            pnt(f'Click: {click}, Response: {response}')
+                pnt(f'failed to get response for {index} ({uid}, {iid})')
+                self.exporter.save_progress(index)
+                exit(0)
 
-            count += 1
-            if count > 10:
-                break
+            pnt(f'({index}/{len(self.processor.test_set)}) Click: {click}, Response: {response}')
+            self.exporter.write(response)
+            self.exporter.save_progress(index + 1)
 
 
 if __name__ == '__main__':
     configuration = ConfigInit(
         required_args=['data', 'model'],
-        default_args=dict(slicer=-10, data_dir=None),
+        default_args=dict(slicer=-20),
         makedirs=[]
     ).parse()
 

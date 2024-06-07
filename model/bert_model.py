@@ -30,9 +30,6 @@ class BertModel(BaseModel, abc.ABC):
         input_ids = self.tokenizer.tokenize(SIMPLE_SYSTEM + content + SIMPLE_SUFFIX)
         input_ids = self.tokenizer.convert_tokens_to_ids(input_ids)
         input_ids = [self.cls_token] + input_ids + [self.mask_token]
-        if len(input_ids) > 512:
-            raise ValueError('Input is too long')
-
         # convert to tensor
         return torch.tensor(input_ids).unsqueeze(0)
 

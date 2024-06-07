@@ -25,3 +25,7 @@ class LlamaModel(BaseModel, abc.ABC):
 
 class Llama1Model(LlamaModel):
     pass
+
+
+class Llama2Model(LlamaModel):
+    pass
