@@ -17,6 +17,8 @@ class YelpProcessor(UICTProcessor):
     NUM_TEST = 20000
     NUM_FINETUNE = 100000
 
+    REQUIRE_STRINGIFY = False
+
     @property
     def default_attrs(self):
         return ['name']

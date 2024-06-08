@@ -3,23 +3,18 @@ from typing import Union, Optional
 
 import pigmento
 from pigmento import pnt
-from tqdm import tqdm
 
 from model.base_model import BaseModel
 from model.bert_model import BertBaseModel, BertLargeModel
 from model.llama_model import Llama1Model, Llama2Model
 from model.opt_model import OPT1BModel, OPT350MModel
-from process.microlens_processor import MicroLensProcessor
-from process.mind_processor import MINDProcessor
-from process.movielens_processor import MovieLensProcessor
-from process.steam_processor import SteamProcessor
-from process.yelp_processor import YelpProcessor
 from service.base_service import BaseService
 from service.claude_service import Claude21Service, Claude3Service
 from service.gpt_service import GPT4Service, GPT35Service
 from utils.auth import GPT_KEY, CLAUDE_KEY
 from utils.config_init import ConfigInit
 from utils.export import Exporter
+from utils.function import load_processor
 from utils.gpu import GPU
 
 
@@ -28,7 +23,6 @@ pigmento.add_time_prefix()
 
 class Worker:
     def __init__(self, conf):
-        self.datasets = [MINDProcessor, MicroLensProcessor, MovieLensProcessor, SteamProcessor, YelpProcessor]
         self.services = [
             GPT35Service(auth=GPT_KEY), GPT4Service(auth=GPT_KEY),
             Claude21Service(auth=CLAUDE_KEY), Claude3Service(auth=CLAUDE_KEY)
@@ -39,7 +33,7 @@ class Worker:
         self.data = conf.data.lower()
         self.model = conf.model.replace('.', '').lower()
 
-        self.processor = self.load_processor()
+        self.processor = load_processor(self.data)
         self.processor.load()
         self.caller = self.load_model_or_service()  # type: Union[BaseService, BaseModel]
         self.use_service = isinstance(self.caller, BaseService)
@@ -48,13 +42,6 @@ class Worker:
         os.makedirs(self.log_dir, exist_ok=True)
         pigmento.add_log_plugin(os.path.join(self.log_dir, f'{self.model}.log'))
         self.exporter = Exporter(os.path.join(self.log_dir, f'{self.model}.dat'))
-
-    def load_processor(self):
-        for dataset in self.datasets:
-            if dataset.get_name() == self.data:
-                pnt(f'loading {dataset.get_name()} processor')
-                return dataset(data_dir=self.conf.data_dir)
-        raise ValueError(f'Unknown dataset: {self.data}')
 
     def load_model_or_service(self):
         for model in self.models:
@@ -83,8 +70,8 @@ class Worker:
 
             response: Optional[str, float] = None
 
-            for i in range(len(history), 1, -1):
-                input_sequence = input_template.format('\n'.join(history[:i]), candidate)
+            for i in range(len(history)):
+                input_sequence = input_template.format('\n'.join(history[i:]), candidate)
                 response = self.caller(input_sequence)
                 if response is not None:
                     break

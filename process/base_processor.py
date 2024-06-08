@@ -17,6 +17,7 @@ class BaseProcessor(abc.ABC):
     NUM_FINETUNE: int
 
     MAX_INTERACTIONS_PER_USER: int = 20
+    REQUIRE_STRINGIFY: bool
 
     def __init__(self, data_dir=None, cache=True):
         self.data_dir = data_dir
@@ -55,6 +56,8 @@ class BaseProcessor(abc.ABC):
         raise NotImplemented
 
     def _stringify(self, df: pd.DataFrame):
+        if not self.REQUIRE_STRINGIFY:
+            return df
         if self.IID_COL in df.columns:
             df[self.IID_COL] = df[self.IID_COL].astype(str)
         if self.UID_COL in df.columns:
@@ -90,14 +93,16 @@ class BaseProcessor(abc.ABC):
         self.users = self._stringify(self.users)
         self.interactions = self._stringify(self.interactions)
 
-        self.users[self.HIS_COL] = self.users[self.HIS_COL].apply(
-            lambda x: [str(item) for item in x]
-        )
+        if self.REQUIRE_STRINGIFY:
+            self.users[self.HIS_COL] = self.users[self.HIS_COL].apply(
+                lambda x: [str(item) for item in x]
+            )
 
         self.item_vocab = dict(zip(self.items[self.IID_COL], self.items.index))
         self.user_vocab = dict(zip(self.users[self.UID_COL], self.users.index))
 
         self.load_public_sets()
+        # self._loaded = True
 
     def _organize_item(self, iid, item_attrs: list):
         item = self.items.loc[self.item_vocab[iid]]
@@ -109,49 +114,18 @@ class BaseProcessor(abc.ABC):
             item_str.append(f'{attr}: {item[attr]}')
         return ', '.join(item_str)
 
-    def iterate(self, max_len=10, item_attrs=None):
-        if not self._loaded:
-            raise RuntimeError('Datasets not loaded')
-
-        item_attrs = item_attrs or self.default_attrs
-        # iterate interactions
-        for _, row in self.interactions.iterrows():
-            uid = row[self.UID_COL]
-            candidate = row[self.IID_COL]
-            click = row[self.CLK_COL]
-
-            user = self.users.loc[self.user_vocab[uid]]
-            history = user[self.HIS_COL][:max_len]
-            history_str = [self._organize_item(iid, item_attrs) for iid in history]
-            candidate_str = self._organize_item(candidate, item_attrs)
-
-            yield uid, candidate, history_str, candidate_str, click
-
     @staticmethod
     def _build_slicer(slicer: int):
         def _slicer(x):
             return x[:slicer] if slicer > 0 else x[slicer:]
         return _slicer
 
-    def generate(self, slicer: Union[int, Callable], item_attrs=None, source='test'):
-        """
-        generate test or finetune set
-        :param slicer: user sequence slicer
-        :param item_attrs: item attributes to show
-        :param source: test or finetune
-        """
-        if not self._loaded:
-            raise RuntimeError('Datasets not loaded')
-
-        assert source in ['test', 'finetune'], 'source must be test or finetune'
-        source_set = getattr(self, f'{source}_set')
-
-        # unify slicer to function
+    def _iterate(self, dataframe: pd.DataFrame, slicer: Union[int, Callable], item_attrs=None):
         if isinstance(slicer, int):
             slicer = self._build_slicer(slicer)
         item_attrs = item_attrs or self.default_attrs
 
-        for _, row in source_set.iterrows():
+        for _, row in dataframe.iterrows():
             uid = row[self.UID_COL]
             candidate = row[self.IID_COL]
             click = row[self.CLK_COL]
@@ -162,6 +136,30 @@ class BaseProcessor(abc.ABC):
             candidate_str = self._organize_item(candidate, item_attrs)
 
             yield uid, candidate, history_str, candidate_str, click
+
+    def generate(self, slicer: Union[int, Callable], item_attrs=None, source='test'):
+        """
+        generate test, finetune, or original set
+        :param slicer: user sequence slicer
+        :param item_attrs: item attributes to show
+        :param source: test, finetune, or original
+        """
+        if not self._loaded:
+            raise RuntimeError('Datasets not loaded')
+
+        assert source in ['test', 'finetune', 'original'], 'source must be test, finetune, or original'
+        source_set = self.interactions if source == 'original' else getattr(self, f'{source}_set')
+
+        return self._iterate(source_set, slicer, item_attrs)
+
+    def iterate(self, slicer: Union[int, Callable], item_attrs=None):
+        return self.generate(slicer, item_attrs, source='original')
+
+    def test(self, slicer: Union[int, Callable], item_attrs=None):
+        return self.generate(slicer, item_attrs, source='test')
+
+    def finetune(self, slicer: Union[int, Callable], item_attrs=None):
+        return self.generate(slicer, item_attrs, source='finetune')
 
     @staticmethod
     def _group_iterator(users, interactions):
@@ -209,6 +207,7 @@ class BaseProcessor(abc.ABC):
                 self.finetune_set = self._stringify(self.finetune_set)
                 pnt('loaded finetune set')
 
+            self._loaded = True
             return
 
         pnt(f'processing {self.get_name()} from item, user, and interaction data')

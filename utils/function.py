@@ -4,6 +4,14 @@ import sys
 
 import numpy as np
 import torch
+from pigmento import pnt
+
+from process.goodreads_processor import GoodreadsProcessor
+from process.microlens_processor import MicroLensProcessor
+from process.mind_processor import MINDProcessor
+from process.movielens20m_processor import MovieLens20MProcessor
+from process.steam_processor import SteamProcessor
+from process.yelp_processor import YelpProcessor
 
 
 def combine_config(config: dict, **kwargs):
@@ -51,3 +59,13 @@ def argparse():
             except ValueError:
                 pass
     return kwargs
+
+
+def load_processor(dataset, use_cache=True, data_dir=None):
+    processors = [MINDProcessor, MicroLensProcessor, SteamProcessor, YelpProcessor, MovieLens20MProcessor, GoodreadsProcessor]
+
+    for processor in processors:
+        if processor.get_name() == dataset:
+            pnt(f'loading {processor.get_name()} processor')
+            return processor(cache=use_cache, data_dir=data_dir)
+    raise ValueError(f'Unknown dataset: {dataset}')
