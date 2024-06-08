@@ -18,12 +18,9 @@ class GoodreadsProcessor(UICTProcessor):
     NUM_TEST = 20000
     NUM_FINETUNE = 100000
 
+    REQUIRE_STRINGIFY = False
+
     POS_COUNT = 2
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
-        self._interactions = None
 
     @property
     def default_attrs(self):

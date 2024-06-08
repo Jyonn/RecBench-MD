@@ -15,6 +15,8 @@ class MovieLens20MProcessor(UICTProcessor):
     NUM_TEST = 20000
     NUM_FINETUNE = 100000
 
+    REQUIRE_STRINGIFY = False
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -29,12 +31,9 @@ class MovieLens20MProcessor(UICTProcessor):
         movies = pd.read_csv(
             filepath_or_buffer=path,
             sep=',',
-            # header=None,
-            # names=['mid', 'title', 'genres'],
             engine='python',
             encoding="ISO-8859-1",
         )
-        # movie title may exist special characters, so we need to remove them
         movies['title'] = movies['title'].str.replace(r'[^A-Za-z0-9 ]+', '')
         return movies
 
@@ -42,8 +41,6 @@ class MovieLens20MProcessor(UICTProcessor):
         interactions = pd.read_csv(
             filepath_or_buffer=os.path.join(self.data_dir, 'ratings.csv'),
             sep=',',
-            # header=None,
-            # names=[self.UID_COL, self.IID_COL, 'rating', self.DAT_COL],
             engine='python'
         )
 

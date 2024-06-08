@@ -2,7 +2,7 @@ import abc
 
 from transformers.models.llama import LlamaForCausalLM, LlamaTokenizer
 
-from config import CHAT_SYSTEM, SIMPLE_SUFFIX
+from config import CHAT_SYSTEM, SIMPLE_SUFFIX, SIMPLE_SYSTEM
 from model.base_model import BaseModel
 
 
@@ -19,8 +19,10 @@ class LlamaModel(BaseModel, abc.ABC):
 
         self.model.to(self.device)
 
-    def generate_input_ids(self, content) -> float:
-        return self.tokenizer.encode(CHAT_SYSTEM + content + SIMPLE_SUFFIX, return_tensors='pt')
+    def generate_input_ids(self, content, wrap_ask=True) -> float:
+        if wrap_ask:
+            content = SIMPLE_SYSTEM + content + SIMPLE_SUFFIX
+        return self.tokenizer.encode(content, return_tensors='pt')
 
 
 class Llama1Model(LlamaModel):

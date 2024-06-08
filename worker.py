@@ -16,9 +16,11 @@ from utils.config_init import ConfigInit
 from utils.export import Exporter
 from utils.function import load_processor
 from utils.gpu import GPU
-
+from utils.metrics import MetricPool
+from utils.tqdm_printer import TqdmPrinter
 
 pigmento.add_time_prefix()
+pnt.set_basic_printer(TqdmPrinter())
 
 
 class Worker:
@@ -54,41 +56,69 @@ class Worker:
                 return service
         raise ValueError(f'Unknown model/service: {self.model}')
 
-    def run(self):
+    def test(self):
         input_template = """User behavior sequence: \n{0}\nCandidate item: {1}"""
 
         progress = self.exporter.load_progress()
-        pnt(f'directly start from {progress}')
-        for index, data in enumerate(self.processor.generate(slicer=self.conf.slicer)):
+        if progress > 0:
+            pnt(f'directly start from {progress}')
+        TqdmPrinter.activate()
+        for index, data in enumerate(self.processor.generate(slicer=self.conf.slicer, source=self.conf.source)):
             if index < progress:
                 continue
 
             uid, iid, history, candidate, click = data
 
-            for i in range(len(history)):
-                history[i] = f'({i + 1}) {history[i]}'
-
             response: Optional[str, float] = None
 
-            for i in range(len(history)):
-                input_sequence = input_template.format('\n'.join(history[i:]), candidate)
-                response = self.caller(input_sequence)
+            for _ in range(5):
+                for i in range(len(history)):
+                    _history = [f'({j + 1}) {history[i + j]}' for j in range(len(history) - i)]
+                    input_sequence = input_template.format('\n'.join(_history), candidate)
+                    response = self.caller(input_sequence)
+                    if response is not None:
+                        break
                 if response is not None:
                     break
+                candidate = candidate[:len(candidate) // 2]
+
             if response is None:
                 pnt(f'failed to get response for {index} ({uid}, {iid})')
                 self.exporter.save_progress(index)
                 exit(0)
 
-            pnt(f'({index}/{len(self.processor.test_set)}) Click: {click}, Response: {response}')
+            pnt(f'({index + 1}/{len(self.processor.test_set)}) Click: {click}, Response: {response}')
             self.exporter.write(response)
             self.exporter.save_progress(index + 1)
+        TqdmPrinter.deactivate()
+
+    def evaluate(self):
+        scores = self.exporter.read()
+
+        source_set = self.processor.get_source_set(self.conf.source)
+        labels = source_set[self.processor.CLK_COL].values
+        groups = source_set[self.processor.UID_COL].values
+
+        pool = MetricPool.parse(self.conf.metrics.split('|'))
+        results = pool.calculate(scores, labels, groups)
+        for metric, value in results.items():
+            pnt(f'{metric}: {value:.4f}')
+
+        self.exporter.save_metrics(results)
+
+    def run(self):
+        self.test()
+        self.evaluate()
 
 
 if __name__ == '__main__':
     configuration = ConfigInit(
         required_args=['data', 'model'],
-        default_args=dict(slicer=-20),
+        default_args=dict(
+            slicer=-20,
+            source='test',
+            metrics='|'.join(['GAUC', 'NDCG@1', 'NDCG@5', 'MRR', 'F1', 'Recall@1', 'Recall@5']),
+        ),
         makedirs=[]
     ).parse()
 

@@ -22,11 +22,11 @@ class BaseModel:
     def get_name(cls):
         return cls.__name__.replace('Model', '').lower()
 
-    def generate_input_ids(self, content) -> torch.Tensor:
+    def generate_input_ids(self, content, wrap_ask=True) -> torch.Tensor:
         raise NotImplemented
 
     def ask(self, content) -> Optional[float]:
-        input_ids = self.generate_input_ids(content)
+        input_ids = self.generate_input_ids(content, wrap_ask=True)
         input_ids = input_ids.to(self.device)
 
         input_len = input_ids.size(-1)
@@ -46,6 +46,23 @@ class BaseModel:
         softmax = torch.nn.Softmax(dim=0)
         yes_prob, _ = softmax(torch.tensor([yes_score, no_score])).tolist()
         return yes_prob
+
+    def embed(self, content) -> Optional[torch.Tensor]:
+        input_ids = self.generate_input_ids(content, wrap_ask=False)
+        input_ids = input_ids.to(self.device)
+
+        input_len = input_ids.size(-1)
+        if input_len > self.max_len:
+            return
+
+        # feed-forward
+        with torch.no_grad():
+            output = self.model(input_ids)
+            embeddings = output.last_hidden_state
+
+        # get embeddings of last token
+        embeddings = embeddings[0, -1, :]
+        return embeddings
 
     def __call__(self, content):
         return self.ask(content)

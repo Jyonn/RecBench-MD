@@ -137,6 +137,10 @@ class BaseProcessor(abc.ABC):
 
             yield uid, candidate, history_str, candidate_str, click
 
+    def get_source_set(self, source):
+        assert source in ['test', 'finetune', 'original'], 'source must be test, finetune, or original'
+        return self.interactions if source == 'original' else getattr(self, f'{source}_set')
+
     def generate(self, slicer: Union[int, Callable], item_attrs=None, source='test'):
         """
         generate test, finetune, or original set
@@ -147,9 +151,7 @@ class BaseProcessor(abc.ABC):
         if not self._loaded:
             raise RuntimeError('Datasets not loaded')
 
-        assert source in ['test', 'finetune', 'original'], 'source must be test, finetune, or original'
-        source_set = self.interactions if source == 'original' else getattr(self, f'{source}_set')
-
+        source_set = self.get_source_set(source)
         return self._iterate(source_set, slicer, item_attrs)
 
     def iterate(self, slicer: Union[int, Callable], item_attrs=None):

@@ -15,7 +15,7 @@ class MovieLensProcessor(UICTProcessor):
     NUM_TEST = 20000
     NUM_FINETUNE = 100000
 
-    # MAX_INTERACTIONS_PER_USER = 50
+    REQUIRE_STRINGIFY = False
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

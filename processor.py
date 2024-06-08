@@ -17,7 +17,14 @@ if __name__ == '__main__':
     processor = load_processor(data, use_cache=configuration.use_cache, data_dir=data_dir)
     processor.load()
 
+    # interactions.filter(lambda x: x[self.CLK_COL].nunique() == 2)
+    groups = processor.interactions.groupby(processor.UID_COL)
+    groups = groups.filter(lambda x: x[processor.CLK_COL].nunique() < 2)
+    print(groups)
+    print(len(groups))
+
     count = 0
+
     for uid, iid, history, candidate, click in processor.iterate(slicer=configuration.slicer):
         # print(uid, iid, history, candidate, click)
         print(f'User: {uid}, Item: {iid}, History, Click: {click}')

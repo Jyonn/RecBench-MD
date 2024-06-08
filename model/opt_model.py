@@ -20,8 +20,10 @@ class OPTModel(BaseModel, abc.ABC):
 
         self.model.to(self.device)
 
-    def generate_input_ids(self, content):
-        return self.tokenizer.encode(CHAT_SYSTEM + content + SIMPLE_SUFFIX, return_tensors='pt')
+    def generate_input_ids(self, content, wrap_ask=True):
+        if wrap_ask:
+            content = CHAT_SYSTEM + content + SIMPLE_SUFFIX
+        return self.tokenizer.encode(content, return_tensors='pt')
 
 
 class OPT1BModel(OPTModel):
