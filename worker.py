@@ -1,7 +1,9 @@
 import os.path
 from typing import Union, Optional
 
+import numpy as np
 import pigmento
+import torch
 from pigmento import pnt
 
 from model.base_model import BaseModel
@@ -35,12 +37,21 @@ class Worker:
         self.data = conf.data.lower()
         self.model = conf.model.replace('.', '').lower()
 
+        self.type = conf.type
+        assert self.type in ['prompt', 'embed'], f'Type {self.type} is not supported.'
+        self.use_prompt = self.type == 'prompt'
+        self.use_embed = self.type == 'embed'
+
         self.processor = load_processor(self.data)
         self.processor.load()
         self.caller = self.load_model_or_service()  # type: Union[BaseService, BaseModel]
         self.use_service = isinstance(self.caller, BaseService)
 
         self.log_dir = os.path.join('export', self.data)
+        if self.use_embed:
+            assert not self.use_service, 'Embedding is not supported for service.'
+            self.log_dir = os.path.join('export', self.data + '_embed')
+
         os.makedirs(self.log_dir, exist_ok=True)
         pigmento.add_log_plugin(os.path.join(self.log_dir, f'{self.model}.log'))
         self.exporter = Exporter(os.path.join(self.log_dir, f'{self.model}.dat'))
@@ -56,7 +67,7 @@ class Worker:
                 return service
         raise ValueError(f'Unknown model/service: {self.model}')
 
-    def test(self):
+    def test_prompt(self):
         input_template = """User behavior sequence: \n{0}\nCandidate item: {1}"""
 
         progress = self.exporter.load_progress()
@@ -92,6 +103,65 @@ class Worker:
             self.exporter.save_progress(index + 1)
         TqdmPrinter.deactivate()
 
+    def test_embed(self):
+        history_template = """User behavior sequence: \n{0}"""
+        candidate_template = """Candidate item: {0}"""
+
+        progress = self.exporter.load_progress()
+        if progress > 0:
+            pnt(f'directly start from {progress}')
+        item_dict = self.exporter.load_embed('item')
+        user_dict = self.exporter.load_embed('user')
+
+        TqdmPrinter.activate()
+        for index, data in enumerate(self.processor.generate(slicer=self.conf.slicer, source=self.conf.source)):
+            if index < progress:
+                continue
+
+            uid, iid, history, candidate, click = data
+
+            user_embed: Optional[np.ndarray] = None
+            if uid in user_dict:
+                user_embed = user_dict[uid]
+            else:
+                for i in range(len(history)):
+                    _history = [f'({j + 1}) {history[i + j]}' for j in range(len(history) - i)]
+                    history_sequence = history_template.format('\n'.join(_history))
+                    user_embed = self.caller.embed(history_sequence)
+                    if user_embed is not None:
+                        break
+                if user_embed is None:
+                    pnt(f'failed to get user embeds for {index} ({uid}, {iid})')
+                    self.exporter.save_progress(index)
+                    exit(0)
+                user_dict[uid] = user_embed
+                self.exporter.save_embed('user', user_dict)
+
+            item_embed: Optional[np.ndarray] = None
+            if iid in item_dict:
+                item_embed = item_dict[iid]
+            else:
+                for _ in range(5):
+                    candidate_sequence = candidate_template.format(candidate)
+                    item_embed = self.caller.embed(candidate_sequence)
+                    if item_embed is None:
+                        candidate = candidate[:len(candidate) // 2]
+                        continue
+                if item_embed is None:
+                    pnt(f'failed to get item embeds for {index} ({uid}, {iid})')
+                    self.exporter.save_progress(index)
+                    exit(0)
+                item_dict[iid] = item_embed
+                self.exporter.save_embed('item', item_dict)
+
+            # score = torch.dot(item_embed, user_embed).item()
+            score = np.dot(item_embed, user_embed)
+
+            pnt(f'({index + 1}/{len(self.processor.test_set)}) Click: {click}, Score: {score}')
+            self.exporter.write(score)
+            self.exporter.save_progress(index + 1)
+        TqdmPrinter.deactivate()
+
     def evaluate(self):
         scores = self.exporter.read()
 
@@ -107,7 +177,10 @@ class Worker:
         self.exporter.save_metrics(results)
 
     def run(self):
-        self.test()
+        if self.use_prompt:
+            self.test_prompt()
+        else:
+            self.test_embed()
         self.evaluate()
 
 
@@ -118,6 +191,7 @@ if __name__ == '__main__':
             slicer=-20,
             source='test',
             metrics='|'.join(['GAUC', 'NDCG@1', 'NDCG@5', 'MRR', 'F1', 'Recall@1', 'Recall@5']),
+            type='text',
         ),
         makedirs=[]
     ).parse()

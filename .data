@@ -1,3 +1,6 @@
 mind = /data1/qijiong/Data/MIND
 goodreads = /home/data4/qijiong/Data/Goodreads
 microlens = /home/data4/qijiong/Data/MicroLens
+movielens = /home/data4/qijiong/Data/MovieLens
+steam = /home/data4/qijiong/Data/Steam
+yelp = /home/data4/qijiong/Data/Yelp

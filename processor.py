@@ -1,8 +1,12 @@
+import pigmento
 from pigmento import pnt
 
 from utils.config_init import ConfigInit
 from utils.data import get_data_dir
 from utils.function import load_processor
+
+
+pigmento.add_time_prefix()
 
 
 if __name__ == '__main__':
@@ -21,7 +25,6 @@ if __name__ == '__main__':
     groups = processor.interactions.groupby(processor.UID_COL)
     groups = groups.filter(lambda x: x[processor.CLK_COL].nunique() < 2)
     print(groups)
-    print(len(groups))
 
     count = 0
 

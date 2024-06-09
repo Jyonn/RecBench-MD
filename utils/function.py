@@ -9,7 +9,7 @@ from pigmento import pnt
 from process.goodreads_processor import GoodreadsProcessor
 from process.microlens_processor import MicroLensProcessor
 from process.mind_processor import MINDProcessor
-from process.movielens20m_processor import MovieLens20MProcessor
+from process.movielens_processor import MovieLensProcessor
 from process.steam_processor import SteamProcessor
 from process.yelp_processor import YelpProcessor
 
@@ -62,7 +62,7 @@ def argparse():
 
 
 def load_processor(dataset, use_cache=True, data_dir=None):
-    processors = [MINDProcessor, MicroLensProcessor, SteamProcessor, YelpProcessor, MovieLens20MProcessor, GoodreadsProcessor]
+    processors = [MINDProcessor, MicroLensProcessor, SteamProcessor, YelpProcessor, GoodreadsProcessor, MovieLensProcessor]
 
     for processor in processors:
         if processor.get_name() == dataset:

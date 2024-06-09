@@ -1,6 +1,7 @@
 from typing import Optional
 
 import torch
+from transformers.modeling_outputs import MaskedLMOutput
 
 from utils import model
 
@@ -57,12 +58,11 @@ class BaseModel:
 
         # feed-forward
         with torch.no_grad():
-            output = self.model(input_ids)
-            embeddings = output.last_hidden_state
+            output = self.model(input_ids, output_hidden_states=True)
 
         # get embeddings of last token
-        embeddings = embeddings[0, -1, :]
-        return embeddings
+        embeddings = output.hidden_states[-1][0, -1, :]
+        return embeddings.cpu().detach().numpy()
 
     def __call__(self, content):
         return self.ask(content)

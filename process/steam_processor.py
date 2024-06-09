@@ -18,6 +18,8 @@ class SteamProcessor(NSProcessor, USPEProcessor):
     NUM_TEST = 20000
     NUM_FINETUNE = 100000
 
+    REQUIRE_STRINGIFY = True
+
     @property
     def default_attrs(self):
         return ['title']  # 指定文本信息Title
@@ -47,6 +49,4 @@ class SteamProcessor(NSProcessor, USPEProcessor):
                 users.append({self.UID_COL: uid, self.HIS_COL: his})
 
         users = pd.DataFrame(users)
-        self._extract_pos_samples(users)
-
-        return pd.DataFrame(users)
+        return self._extract_pos_samples(users)
