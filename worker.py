@@ -1,5 +1,5 @@
 import os.path
-from typing import Union, Optional
+from typing import Union, Optional, List
 
 import numpy as np
 import pigmento
@@ -98,7 +98,7 @@ class Worker:
                 self.exporter.save_progress(index)
                 exit(0)
 
-            pnt(f'({index + 1}/{len(self.processor.test_set)}) Click: {click}, Response: {response}')
+            pnt(f'Click: {click}, Response: {response}', current=index + 1, count=len(self.processor.test_set))
             self.exporter.write(response)
             self.exporter.save_progress(index + 1)
         TqdmPrinter.deactivate()
@@ -155,15 +155,17 @@ class Worker:
                 self.exporter.save_embed('item', item_dict)
 
             # score = torch.dot(item_embed, user_embed).item()
-            score = np.dot(item_embed, user_embed)
+            # score = np.dot(item_embed, user_embed)
+            # switch dot product to cosine similarity
+            score = np.dot(item_embed, user_embed) / (np.linalg.norm(item_embed) * np.linalg.norm(user_embed))
 
-            pnt(f'({index + 1}/{len(self.processor.test_set)}) Click: {click}, Score: {score}')
+            pnt(f'Click: {click}, Score: {score}', current=index + 1, count=len(self.processor.test_set))
             self.exporter.write(score)
             self.exporter.save_progress(index + 1)
         TqdmPrinter.deactivate()
 
     def evaluate(self):
-        scores = self.exporter.read()
+        scores = self.exporter.read(from_convert=self.use_service)  # type: List[float]
 
         source_set = self.processor.get_source_set(self.conf.source)
         labels = source_set[self.processor.CLK_COL].values
@@ -176,11 +178,43 @@ class Worker:
 
         self.exporter.save_metrics(results)
 
+    def auto_convert(self):
+        progress = self.exporter.load_progress()
+        source_set = self.processor.get_source_set(self.conf.source)
+        assert progress == len(source_set), f'{self.conf.source} is not fully tested'
+
+        labels = self.exporter.read(to_float=False)  # type: List[str]
+        # use upper string
+        labels = [label.upper().strip() for label in labels]
+        scores = []
+
+        rule_counts = [0, 0, 0]
+        for label in labels:
+            # Rule 1: fully YES/NO detect
+            if label in ['YES', 'NO']:
+                scores.append(1 if label == 'YES' else 0)
+                rule_counts[0] += 1
+                continue
+            # Rule 2: partially YES/NO detect
+            if ('YES' in label) ^ ('NO' in label):
+                scores.append(1 if 'YES' in label else 0)
+                rule_counts[1] += 1
+                continue
+            # Rule 3: manually detect
+            pnt(f'Please manually convert: {label}')
+            scores.append(int(input('Score (0/1): ')))
+            rule_counts[2] += 1
+
+        pnt(f'Rule 1: {rule_counts[0]}, Rule 2: {rule_counts[1]}, Rule 3: {rule_counts[2]}')
+        self.exporter.save_convert(scores)
+
     def run(self):
         if self.use_prompt:
             self.test_prompt()
         else:
             self.test_embed()
+        if self.use_service:
+            self.auto_convert()
         self.evaluate()
 
 
@@ -191,7 +225,7 @@ if __name__ == '__main__':
             slicer=-20,
             source='test',
             metrics='|'.join(['GAUC', 'NDCG@1', 'NDCG@5', 'MRR', 'F1', 'Recall@1', 'Recall@5']),
-            type='text',
+            type='prompt',
         ),
         makedirs=[]
     ).parse()

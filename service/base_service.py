@@ -13,5 +13,5 @@ class BaseService:
         pass
 
     def __call__(self, content):
-        time.sleep(1)
+        time.sleep(0.1)
         return self.ask(content)

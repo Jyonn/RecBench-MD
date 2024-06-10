@@ -138,15 +138,15 @@ class BaseProcessor(abc.ABC):
             yield uid, candidate, history_str, candidate_str, click
 
     def get_source_set(self, source):
-        assert source in ['test_prompt', 'finetune', 'original'], 'source must be test_prompt, finetune, or original'
+        assert source in ['test', 'finetune', 'original'], 'source must be test, finetune, or original'
         return self.interactions if source == 'original' else getattr(self, f'{source}_set')
 
-    def generate(self, slicer: Union[int, Callable], item_attrs=None, source='test_prompt'):
+    def generate(self, slicer: Union[int, Callable], item_attrs=None, source='test'):
         """
-        generate test_prompt, finetune, or original set
+        generate test, finetune, or original set
         :param slicer: user sequence slicer
         :param item_attrs: item attributes to show
-        :param source: test_prompt, finetune, or original
+        :param source: test, finetune, or original
         """
         if not self._loaded:
             raise RuntimeError('Datasets not loaded')
@@ -157,8 +157,8 @@ class BaseProcessor(abc.ABC):
     def iterate(self, slicer: Union[int, Callable], item_attrs=None):
         return self.generate(slicer, item_attrs, source='original')
 
-    def test_prompt(self, slicer: Union[int, Callable], item_attrs=None):
-        return self.generate(slicer, item_attrs, source='test_prompt')
+    def test(self, slicer: Union[int, Callable], item_attrs=None):
+        return self.generate(slicer, item_attrs, source='test')
 
     def finetune(self, slicer: Union[int, Callable], item_attrs=None):
         return self.generate(slicer, item_attrs, source='finetune')
@@ -195,14 +195,14 @@ class BaseProcessor(abc.ABC):
         return users
 
     def load_public_sets(self):
-        if os.path.exists(os.path.join(self.store_dir, 'test_prompt.parquet')) and \
+        if os.path.exists(os.path.join(self.store_dir, 'test.parquet')) and \
                 os.path.exists(os.path.join(self.store_dir, 'finetune.parquet')):
             pnt(f'loading {self.get_name()} from cache')
 
             if self.NUM_TEST:
-                self.test_set = pd.read_parquet(os.path.join(self.store_dir, 'test_prompt.parquet'))
+                self.test_set = pd.read_parquet(os.path.join(self.store_dir, 'test.parquet'))
                 self.test_set = self._stringify(self.test_set)
-                pnt('loaded test_prompt set')
+                pnt('loaded test set')
 
             if self.NUM_FINETUNE:
                 self.finetune_set = pd.read_parquet(os.path.join(self.store_dir, 'finetune.parquet'))
@@ -221,8 +221,8 @@ class BaseProcessor(abc.ABC):
         if self.NUM_TEST:
             self.test_set = self._split(iterator, self.NUM_TEST)
             self.test_set.reset_index(drop=True, inplace=True)
-            self.test_set.to_parquet(os.path.join(self.store_dir, 'test_prompt.parquet'))
-            pnt(f'generated test_prompt set with {len(self.test_set)}/{self.NUM_TEST} samples')
+            self.test_set.to_parquet(os.path.join(self.store_dir, 'test.parquet'))
+            pnt(f'generated test set with {len(self.test_set)}/{self.NUM_TEST} samples')
 
         if self.NUM_FINETUNE:
             self.finetune_set = self._split(iterator, self.NUM_FINETUNE)
