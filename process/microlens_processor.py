@@ -17,20 +17,25 @@ class MicroLensProcessor(NSProcessor, USPEProcessor):
     NUM_TEST = 20000
     NUM_FINETUNE = 100000
 
+    REQUIRE_STRINGIFY = False
+
     @property
     def default_attrs(self):
         return ['title']
 
     def load_items(self) -> pd.DataFrame:
         path = os.path.join(self.data_dir, 'MicroLens-50k_titles.csv')
-        titles_df = pd.read_csv(filepath_or_buffer=path)
+        titles_df = pd.read_csv(
+            filepath_or_buffer=path,
+            sep=','
+        )
         return titles_df[[self.IID_COL, 'title']]
 
     def load_users(self) -> pd.DataFrame:
         path = os.path.join(self.data_dir, 'MicroLens-50k_pairs.csv')
         interactions = pd.read_csv(
             filepath_or_buffer=path,
-            sep=','
+            sep=',',
         )
         interactions = self._stringify(interactions)
 
@@ -42,6 +47,5 @@ class MicroLensProcessor(NSProcessor, USPEProcessor):
         users.columns = [self.UID_COL, self.HIS_COL]
 
         self._extract_pos_samples(users)
-        # import pdb
-        # pdb.set_trace()
+
         return users
