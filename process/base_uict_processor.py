@@ -34,7 +34,9 @@ class UICTProcessor(USPEProcessor, abc.ABC):
         ).groupby(self.UID_COL)[self.IID_COL].apply(list).reset_index()
         users.columns = [self.UID_COL, self.HIS_COL]
 
-        return self._extract_pos_samples(users)
+        self._extract_pos_samples(users)
+
+        return users
 
     def load_interactions(self) -> pd.DataFrame:
         user_set = set(self.users[self.UID_COL].unique())
