@@ -3,11 +3,12 @@ from typing import Union, Optional, List
 
 import numpy as np
 import pigmento
+import torch
 from pigmento import pnt
 
 from model.base_model import BaseModel
 from model.bert_model import BertBaseModel, BertLargeModel
-from model.lc_model import QWen2TH7BModel, GLM4TH9BModel, Mistral7BModel
+from model.lc_model import QWen2TH7BModel, GLM4TH9BModel, Mistral7BModel, Phi3TH7BModel
 from model.llama_model import Llama1Model, Llama2Model
 from model.opt_model import OPT1BModel, OPT350MModel
 from model.p5_model import P5BeautyModel
@@ -38,7 +39,7 @@ class Worker:
             BertBaseModel, BertLargeModel,
             Llama1Model, Llama2Model,
             OPT1BModel, OPT350MModel,
-            QWen2TH7BModel, GLM4TH9BModel, Mistral7BModel,
+            QWen2TH7BModel, GLM4TH9BModel, Mistral7BModel, Phi3TH7BModel,
             P5BeautyModel
         ]
 
@@ -67,19 +68,6 @@ class Worker:
         os.makedirs(self.log_dir, exist_ok=True)
         pigmento.add_log_plugin(os.path.join(self.log_dir, f'{self.model}.log'))
         self.exporter = Exporter(os.path.join(self.log_dir, f'{self.model}.dat'))
-
-    def get_device(self):
-        if self.conf.gpu is None:
-            device_ids = GPU.auto_choose(ngpus=self.conf.ngpus)
-        else:
-            if isinstance(self.conf.gpu, int):
-                device_ids = [self.conf.gpu]
-            elif isinstance(self.conf.gpu, str):
-                device_ids = list(map(int, self.conf.gpu.split(',')))
-            else:
-                raise ValueError(f'Unrecognized GPU: {self.conf.gpu}')
-            pnt(f'Manually choosing device ids: {device_ids}')
-        return device_ids
 
     def load_model_or_service(self):
         for model in self.models:
@@ -181,11 +169,10 @@ class Worker:
                 item_dict[iid] = item_embed
                 self.exporter.save_embed('item', item_dict)
 
-            # score = torch.dot(item_embed, user_embed).item()
-            # score = np.dot(item_embed, user_embed)
-            # switch dot product to cosine similarity
-            score = np.dot(item_embed, user_embed) / (np.linalg.norm(item_embed) * np.linalg.norm(user_embed))
+            th_item_embed = torch.tensor(item_embed)
+            th_user_embed = torch.tensor(user_embed)
 
+            score = float(torch.cosine_similarity(th_item_embed, th_user_embed, dim=0))
             pnt(f'Click: {click}, Score: {score}', current=index + 1, count=len(self.processor.test_set))
             self.exporter.write(score)
             self.exporter.save_progress(index + 1)

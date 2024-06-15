@@ -25,6 +25,9 @@ class BaseModel:
     def generate_input_ids(self, content, wrap_ask=True) -> torch.Tensor:
         raise NotImplemented
 
+    # def train(self, batch):
+    #
+
     def ask(self, content) -> Optional[float]:
         input_ids = self.generate_input_ids(content, wrap_ask=True)
         input_ids = input_ids.to(self.device)

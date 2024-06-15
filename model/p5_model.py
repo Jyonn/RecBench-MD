@@ -1,4 +1,5 @@
 import abc
+from typing import Optional
 
 import torch
 from transformers import T5Config
@@ -33,6 +34,11 @@ class P5Model(BaseModel, abc.ABC):
 
         self.load_state_dict()
 
+        self.model.to(self.device)
+
+        import pdb
+        pdb.set_trace()
+
     def load_state_dict(self):
         state_dict = torch.load(self.key, map_location='cpu')
         original_keys = list(state_dict.keys())
@@ -46,6 +52,42 @@ class P5Model(BaseModel, abc.ABC):
         if wrap_ask:
             content = CHAT_SYSTEM + content + SIMPLE_SUFFIX
         return self.tokenizer.encode(content, return_tensors='pt')
+
+    def ask(self, content) -> Optional[float]:
+        input_ids = self.generate_input_ids(content, wrap_ask=True)
+        input_ids = input_ids.to(self.device)
+        input_len = input_ids.size(-1)
+        if input_len > self.max_len:
+            return
+
+        # feed-forward
+        with torch.no_grad():
+            output = self.model(input_ids=input_ids)
+            logits = output.logits
+
+        # get logits of last token
+        logits = logits[0, -1, :]
+        yes_score, no_score = logits[self.yes_token].item(), logits[self.no_token].item()
+
+        # get softmax of [yes, no]
+        softmax = torch.nn.Softmax(dim=0)
+        yes_prob, _ = softmax(torch.tensor([yes_score, no_score])).tolist()
+        return yes_prob
+
+    def embed(self, content) -> Optional[torch.Tensor]:
+        input_ids = self.generate_input_ids(content, wrap_ask=False)
+        input_ids = input_ids.to(self.device)
+
+        input_len = input_ids.size(-1)
+        if input_len > self.max_len:
+            return
+
+        # feed-forward
+        with torch.no_grad():
+            output = self.model(input_ids=input_ids, output_hidden_states=True)
+        # get embeddings of last token
+        embeddings = output.hidden_states[-1][0, -1, :]
+        return embeddings.cpu().detach().numpy()
 
 
 class P5BeautyModel(P5Model):

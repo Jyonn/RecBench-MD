@@ -9,4 +9,8 @@ tokenizers==0.12.1
 smartdict
 oba
 numpy
-google-generativeai
+google-generativeai  # for gemini service
+einop  # for phi model
+pytest  # for phi model
+tiktoken  # for glm model
+flash-attn  # for phi model

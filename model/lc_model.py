@@ -40,3 +40,7 @@ class GLM4TH9BModel(LongContextModel):
 
 class Mistral7BModel(LongContextModel):
     pass
+
+
+class Phi3TH7BModel(LongContextModel):
+    pass
