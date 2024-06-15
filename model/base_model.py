@@ -1,7 +1,6 @@
 from typing import Optional
 
 import torch
-from transformers.modeling_outputs import MaskedLMOutput
 
 from utils import model
 
@@ -29,7 +28,6 @@ class BaseModel:
     def ask(self, content) -> Optional[float]:
         input_ids = self.generate_input_ids(content, wrap_ask=True)
         input_ids = input_ids.to(self.device)
-
         input_len = input_ids.size(-1)
         if input_len > self.max_len:
             return
@@ -59,7 +57,6 @@ class BaseModel:
         # feed-forward
         with torch.no_grad():
             output = self.model(input_ids, output_hidden_states=True)
-
         # get embeddings of last token
         embeddings = output.hidden_states[-1][0, -1, :]
         return embeddings.cpu().detach().numpy()

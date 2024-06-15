@@ -24,10 +24,7 @@ class UICTProcessor(USPEProcessor, abc.ABC):
         interactions = interactions.filter(lambda x: x[self.CLK_COL].nunique() == 2)
         self._interactions = interactions
 
-        # those stars >= 4 are considered as positive and stars <= 2 are considered as negative
         pos_inters = interactions[interactions[self.CLK_COL] == 1]
-        # format string date to datetime
-        # pos_inters[self.DAT_COL] = pd.to_datetime(pos_inters['date'])
 
         users = pos_inters.sort_values(
             [self.UID_COL, self.DAT_COL]

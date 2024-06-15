@@ -1,8 +1,8 @@
 import abc
 
-from transformers.models.llama import LlamaForCausalLM, LlamaTokenizer
+from transformers import LlamaForCausalLM, LlamaTokenizer
 
-from config import CHAT_SYSTEM, SIMPLE_SUFFIX, SIMPLE_SYSTEM
+from config import SIMPLE_SUFFIX, SIMPLE_SYSTEM
 from model.base_model import BaseModel
 
 
@@ -10,7 +10,10 @@ class LlamaModel(BaseModel, abc.ABC):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self.model = LlamaForCausalLM.from_pretrained(self.key)  # type: LlamaForCausalLM
+        self.model = LlamaForCausalLM.from_pretrained(
+            self.key,
+            # device_map=
+        )  # type: LlamaForCausalLM
         self.tokenizer = LlamaTokenizer.from_pretrained(self.key)
         self.max_len = self.model.config.max_position_embeddings
 

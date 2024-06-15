@@ -46,6 +46,6 @@ class MicroLensProcessor(NSProcessor, USPEProcessor):
         ).groupby(self.UID_COL)[self.IID_COL].apply(list).reset_index()
         users.columns = [self.UID_COL, self.HIS_COL]
 
-        self._extract_pos_samples(users)
+        return self._extract_pos_samples(users)
 
-        return users
+        # return users

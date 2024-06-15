@@ -6,12 +6,15 @@ import numpy as np
 import torch
 from pigmento import pnt
 
+from process.electronics_processor import ElectronicsProcessor
 from process.goodreads_processor import GoodreadsProcessor
+from process.hm_processor import HMProcessor
 from process.microlens_processor import MicroLensProcessor
 from process.mind_processor import MINDProcessor
 from process.movielens_processor import MovieLensProcessor
 from process.steam_processor import SteamProcessor
 from process.yelp_processor import YelpProcessor
+from process.lastfm_processor import LastFMProcessor
 
 
 def combine_config(config: dict, **kwargs):
@@ -62,7 +65,17 @@ def argparse():
 
 
 def load_processor(dataset, use_cache=True, data_dir=None):
-    processors = [MINDProcessor, MicroLensProcessor, SteamProcessor, YelpProcessor, GoodreadsProcessor, MovieLensProcessor]
+    processors = [
+        MINDProcessor,
+        MicroLensProcessor,
+        SteamProcessor,
+        YelpProcessor,
+        GoodreadsProcessor,
+        MovieLensProcessor,
+        ElectronicsProcessor,
+        HMProcessor,
+        LastFMProcessor,
+    ]
 
     for processor in processors:
         if processor.get_name() == dataset:

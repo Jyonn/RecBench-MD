@@ -1,4 +1,5 @@
 import os
+from typing import Union
 
 import torch.cuda
 from pigmento import pnt

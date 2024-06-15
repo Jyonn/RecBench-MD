@@ -3,17 +3,19 @@ from typing import Union, Optional, List
 
 import numpy as np
 import pigmento
-import torch
 from pigmento import pnt
 
 from model.base_model import BaseModel
 from model.bert_model import BertBaseModel, BertLargeModel
+from model.lc_model import QWen2TH7BModel, GLM4TH9BModel, Mistral7BModel
 from model.llama_model import Llama1Model, Llama2Model
 from model.opt_model import OPT1BModel, OPT350MModel
+from model.p5_model import P5BeautyModel
 from service.base_service import BaseService
 from service.claude_service import Claude21Service, Claude3Service
+from service.gemini_service import GeminiService
 from service.gpt_service import GPT4Service, GPT35Service
-from utils.auth import GPT_KEY, CLAUDE_KEY
+from utils.auth import GPT_KEY, CLAUDE_KEY, GEMINI_KEY
 from utils.config_init import ConfigInit
 from utils.export import Exporter
 from utils.function import load_processor
@@ -29,9 +31,16 @@ class Worker:
     def __init__(self, conf):
         self.services = [
             GPT35Service(auth=GPT_KEY), GPT4Service(auth=GPT_KEY),
-            Claude21Service(auth=CLAUDE_KEY), Claude3Service(auth=CLAUDE_KEY)
+            Claude21Service(auth=CLAUDE_KEY), Claude3Service(auth=CLAUDE_KEY),
+            GeminiService(auth=GEMINI_KEY)
         ]
-        self.models = [BertBaseModel, BertLargeModel, Llama1Model, OPT1BModel, OPT350MModel, Llama2Model]
+        self.models = [
+            BertBaseModel, BertLargeModel,
+            Llama1Model, Llama2Model,
+            OPT1BModel, OPT350MModel,
+            QWen2TH7BModel, GLM4TH9BModel, Mistral7BModel,
+            P5BeautyModel
+        ]
 
         self.conf = conf
         self.data = conf.data.lower()
@@ -41,6 +50,9 @@ class Worker:
         assert self.type in ['prompt', 'embed'], f'Type {self.type} is not supported.'
         self.use_prompt = self.type == 'prompt'
         self.use_embed = self.type == 'embed'
+
+        self.device_ids: Optional[list] = None
+        self.cuda: Optional[str] = None
 
         self.processor = load_processor(self.data)
         self.processor.load()
@@ -55,6 +67,19 @@ class Worker:
         os.makedirs(self.log_dir, exist_ok=True)
         pigmento.add_log_plugin(os.path.join(self.log_dir, f'{self.model}.log'))
         self.exporter = Exporter(os.path.join(self.log_dir, f'{self.model}.dat'))
+
+    def get_device(self):
+        if self.conf.gpu is None:
+            device_ids = GPU.auto_choose(ngpus=self.conf.ngpus)
+        else:
+            if isinstance(self.conf.gpu, int):
+                device_ids = [self.conf.gpu]
+            elif isinstance(self.conf.gpu, str):
+                device_ids = list(map(int, self.conf.gpu.split(',')))
+            else:
+                raise ValueError(f'Unrecognized GPU: {self.conf.gpu}')
+            pnt(f'Manually choosing device ids: {device_ids}')
+        return device_ids
 
     def load_model_or_service(self):
         for model in self.models:
@@ -94,10 +119,12 @@ class Worker:
                 candidate = candidate[:len(candidate) // 2]
 
             if response is None:
-                pnt(f'failed to get response for {index} ({uid}, {iid})')
+                pnt(f'failed to get response for {index} ({uid}, {iid})', current=index + 1, count=len(self.processor.test_set))
                 self.exporter.save_progress(index)
                 exit(0)
 
+            if self.use_service:
+                response = response.replace('\n', '').replace('\r', '')
             pnt(f'Click: {click}, Response: {response}', current=index + 1, count=len(self.processor.test_set))
             self.exporter.write(response)
             self.exporter.save_progress(index + 1)
@@ -223,6 +250,8 @@ if __name__ == '__main__':
         required_args=['data', 'model'],
         default_args=dict(
             slicer=-20,
+            ngpus=1,
+            gpu=None,
             source='test',
             metrics='|'.join(['GAUC', 'NDCG@1', 'NDCG@5', 'MRR', 'F1', 'Recall@1', 'Recall@5']),
             type='prompt',

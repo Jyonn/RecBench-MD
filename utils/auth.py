@@ -8,3 +8,5 @@ for line in auth_data.strip().split('\n'):
 
 GPT_KEY = auth['gpt']
 CLAUDE_KEY = auth['claude']
+GEMINI_KEY = auth['gemini']
+HF_KEY = auth['hf']

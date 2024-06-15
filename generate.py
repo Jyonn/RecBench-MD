@@ -1,6 +1,7 @@
 from service.claude_service import ClaudeService, Claude3Service, Claude21Service
+from service.gemini_service import GeminiService
 from service.gpt_service import GPT35Service, GPT4Service
-from utils.auth import GPT_KEY, CLAUDE_KEY
+from utils.auth import GPT_KEY, CLAUDE_KEY, GEMINI_KEY
 
 content = """User behavior sequence:
 (0) 'Wheel Of Fortune' Guest Delivers Hilarious, Off The Rails Introduction
@@ -15,6 +16,9 @@ content = """User behavior sequence:
 Candidate item: Charles Rogers, former Michigan State football, Detroit Lions star, dead at 38     
 """
 
-print(GPT35Service(auth=GPT_KEY).ask(content))
-print(GPT4Service(auth=GPT_KEY).ask(content))
-print(Claude21Service(auth=CLAUDE_KEY).ask(content))
+# print(GPT35Service(auth=GPT_KEY).ask(content))
+# print(GPT4Service(auth=GPT_KEY).ask(content))
+# print(Claude21Service(auth=CLAUDE_KEY).ask(content))
+response = GeminiService(auth=GEMINI_KEY).ask(content)
+response = response.replace('\n', '').replace('\r', '')
+print(response)

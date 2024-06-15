@@ -13,5 +13,11 @@ class BaseService:
         pass
 
     def __call__(self, content):
-        time.sleep(0.1)
-        return self.ask(content)
+        # time.sleep(0.1)
+        error = None
+        for _ in range(5):
+            try:
+                return self.ask(content)
+            except Exception as e:
+                error = str(e)
+        raise RuntimeError(f'Retry over five times with error: {error}')

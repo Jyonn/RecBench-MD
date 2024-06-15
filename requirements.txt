@@ -8,3 +8,5 @@ pandas
 tokenizers==0.12.1
 smartdict
 oba
+numpy
+google-generativeai
