@@ -64,19 +64,22 @@ def argparse():
     return kwargs
 
 
-def load_processor(dataset, use_cache=True, data_dir=None):
-    processors = [
+def load_processors():
+    return [
         MINDProcessor,
         MicroLensProcessor,
-        SteamProcessor,
-        YelpProcessor,
-        GoodreadsProcessor,
-        MovieLensProcessor,
-        ElectronicsProcessor,
-        HMProcessor,
-        LastFMProcessor,
+        # SteamProcessor,
+        # YelpProcessor,
+        # GoodreadsProcessor,
+        # MovieLensProcessor,
+        # ElectronicsProcessor,
+        # HMProcessor,
+        # LastFMProcessor,
     ]
 
+
+def load_processor(dataset, use_cache=True, data_dir=None):
+    processors = load_processors()
     for processor in processors:
         if processor.get_name() == dataset:
             pnt(f'loading {processor.get_name()} processor')

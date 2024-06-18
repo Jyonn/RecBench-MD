@@ -7,6 +7,9 @@ from model.base_model import BaseModel
 
 
 class OPTModel(BaseModel, abc.ABC):
+    PREFIX_PROMPT = CHAT_SYSTEM
+    SUFFIX_PROMPT = SIMPLE_SUFFIX
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -19,11 +22,6 @@ class OPTModel(BaseModel, abc.ABC):
         self.no_token = self.tokenizer.convert_tokens_to_ids('NO')
 
         self.model.to(self.device)
-
-    def generate_input_ids(self, content, wrap_ask=True):
-        if wrap_ask:
-            content = CHAT_SYSTEM + content + SIMPLE_SUFFIX
-        return self.tokenizer.encode(content, return_tensors='pt')
 
 
 class OPT1BModel(OPTModel):

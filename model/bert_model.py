@@ -10,6 +10,9 @@ from model.base_model import BaseModel
 
 
 class BertModel(BaseModel, abc.ABC):
+    PREFIX_PROMPT = SIMPLE_SYSTEM
+    SUFFIX_PROMPT = SIMPLE_SUFFIX
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -24,16 +27,6 @@ class BertModel(BaseModel, abc.ABC):
 
         # load to device
         self.model.to(self.device)
-
-    def generate_input_ids(self, content, wrap_ask=True) -> torch.Tensor:
-        # concat system and content, and append [MASK] token for prediction
-        if wrap_ask:
-            content = SIMPLE_SYSTEM + content + SIMPLE_SUFFIX
-        input_ids = self.tokenizer.tokenize(content)
-        input_ids = self.tokenizer.convert_tokens_to_ids(input_ids)
-        input_ids = [self.cls_token] + input_ids + [self.mask_token]
-        # convert to tensor
-        return torch.tensor(input_ids).unsqueeze(0)
 
 
 class BertBaseModel(BertModel):

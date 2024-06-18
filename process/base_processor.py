@@ -5,6 +5,7 @@ from typing import Union, Callable, Optional
 
 import pandas as pd
 from pigmento import pnt
+from tqdm import tqdm
 
 
 class BaseProcessor(abc.ABC):
@@ -104,15 +105,16 @@ class BaseProcessor(abc.ABC):
         self.load_public_sets()
         # self._loaded = True
 
-    def _organize_item(self, iid, item_attrs: list):
+    def organize_item(self, iid, item_attrs: list, as_dict=False):
         item = self.items.loc[self.item_vocab[iid]]
+
+        if as_dict:
+            return {attr: item[attr] for attr in item_attrs}
+
         if len(item_attrs) == 1:
             return item[item_attrs[0]]
 
-        item_str = []
-        for attr in item_attrs:
-            item_str.append(f'{attr}: {item[attr]}')
-        return ', '.join(item_str)
+        return ', '.join([f'{attr}: {item[attr]}' for attr in item_attrs])
 
     @staticmethod
     def _build_slicer(slicer: int):
@@ -120,7 +122,14 @@ class BaseProcessor(abc.ABC):
             return x[:slicer] if slicer > 0 else x[slicer:]
         return _slicer
 
-    def _iterate(self, dataframe: pd.DataFrame, slicer: Union[int, Callable], item_attrs=None):
+    def _iterate(
+            self,
+            dataframe: pd.DataFrame,
+            slicer: Union[int, Callable],
+            item_attrs=None,
+            id_only=False,
+            as_dict=False,
+    ):
         if isinstance(slicer, int):
             slicer = self._build_slicer(slicer)
         item_attrs = item_attrs or self.default_attrs
@@ -132,8 +141,13 @@ class BaseProcessor(abc.ABC):
 
             user = self.users.loc[self.user_vocab[uid]]
             history = slicer(user[self.HIS_COL])
-            history_str = [self._organize_item(iid, item_attrs) for iid in history]
-            candidate_str = self._organize_item(candidate, item_attrs)
+
+            if id_only:
+                yield uid, candidate, history, click
+                continue
+
+            history_str = [self.organize_item(iid, item_attrs, as_dict=as_dict) for iid in history]
+            candidate_str = self.organize_item(candidate, item_attrs, as_dict=as_dict)
 
             yield uid, candidate, history_str, candidate_str, click
 
@@ -141,18 +155,27 @@ class BaseProcessor(abc.ABC):
         assert source in ['test', 'finetune', 'original'], 'source must be test, finetune, or original'
         return self.interactions if source == 'original' else getattr(self, f'{source}_set')
 
-    def generate(self, slicer: Union[int, Callable], item_attrs=None, source='test'):
+    def generate(
+            self,
+            slicer: Union[int, Callable],
+            item_attrs=None,
+            source='test',
+            id_only=False,
+            as_dict=False,
+    ):
         """
         generate test, finetune, or original set
         :param slicer: user sequence slicer
         :param item_attrs: item attributes to show
         :param source: test, finetune, or original
+        :param id_only: whether to return only ids
+        :param as_dict: whether to return item attributes as dict or string
         """
         if not self._loaded:
             raise RuntimeError('Datasets not loaded')
 
         source_set = self.get_source_set(source)
-        return self._iterate(source_set, slicer, item_attrs)
+        return self._iterate(source_set, slicer, item_attrs, id_only=id_only, as_dict=as_dict)
 
     def iterate(self, slicer: Union[int, Callable], item_attrs=None):
         return self.generate(slicer, item_attrs, source='original')
@@ -181,18 +204,37 @@ class BaseProcessor(abc.ABC):
 
     def _load_user_order(self):
         # check if user order exists
-        if os.path.exists(os.path.join(self.store_dir, 'user_order.txt')):
-            with open(os.path.join(self.store_dir, 'user_order.txt'), 'r') as f:
+        path = os.path.join(self.store_dir, 'user_order.txt')
+        if os.path.exists(path):
+            with open(path, 'r') as f:
                 return [line.strip() for line in f]
 
         users = self.interactions[self.UID_COL].unique().tolist()
         random.shuffle(users)
         # save user order
-        with open(os.path.join(self.store_dir, 'user_order.txt'), 'w') as f:
+        with open(path, 'w') as f:
             for u in users:
                 f.write(f'{u}\n')
 
         return users
+
+    def load_valid_user_set(self, valid_ratio: float):
+        path = os.path.join(self.store_dir, f'valid_user_set_{valid_ratio}.txt')
+        if os.path.exists(path):
+            with open(path, 'r') as f:
+                return {line.strip() for line in f}
+
+        users = self.finetune_set[self.UID_COL].unique().tolist()
+        random.shuffle(users)
+
+        valid_user_num = int(valid_ratio * len(users))
+        valid_user_set = users[:valid_user_num]
+
+        with open(path, 'w') as f:
+            for u in valid_user_set:
+                f.write(f'{u}\n')
+
+        return set(valid_user_set)
 
     def load_public_sets(self):
         if os.path.exists(os.path.join(self.store_dir, 'test.parquet')) and \
@@ -231,3 +273,22 @@ class BaseProcessor(abc.ABC):
             pnt(f'generated finetune set with {len(self.finetune_set)}/{self.NUM_FINETUNE} samples')
 
         self._loaded = True
+
+    def get_item_subset(self, source, slicer: Union[int, Callable]):
+        item_set = set()
+
+        if isinstance(slicer, int):
+            slicer = self._build_slicer(slicer)
+
+        source_set = self.get_source_set(source)
+        for _, row in source_set.iterrows():
+            uid = row[self.UID_COL]
+            iid = row[self.IID_COL]
+
+            user = self.users.loc[self.user_vocab[uid]]
+            history = slicer(user[self.HIS_COL])
+
+            item_set.add(iid)
+            item_set.update(history)
+
+        return item_set

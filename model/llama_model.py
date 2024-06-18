@@ -7,6 +7,9 @@ from model.base_model import BaseModel
 
 
 class LlamaModel(BaseModel, abc.ABC):
+    PREFIX_PROMPT = SIMPLE_SYSTEM
+    SUFFIX_PROMPT = SIMPLE_SUFFIX
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -21,11 +24,6 @@ class LlamaModel(BaseModel, abc.ABC):
         self.no_token = self.tokenizer.convert_tokens_to_ids('NO')
 
         self.model.to(self.device)
-
-    def generate_input_ids(self, content, wrap_ask=True) -> float:
-        if wrap_ask:
-            content = SIMPLE_SYSTEM + content + SIMPLE_SUFFIX
-        return self.tokenizer.encode(content, return_tensors='pt')
 
 
 class Llama1Model(LlamaModel):

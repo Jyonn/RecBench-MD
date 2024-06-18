@@ -1,5 +1,5 @@
 import os.path
-from typing import Union, Optional, List
+from typing import Union, Optional, List, cast
 
 import numpy as np
 import pigmento
@@ -12,6 +12,7 @@ from model.lc_model import QWen2TH7BModel, GLM4TH9BModel, Mistral7BModel, Phi3TH
 from model.llama_model import Llama1Model, Llama2Model
 from model.opt_model import OPT1BModel, OPT350MModel
 from model.p5_model import P5BeautyModel
+from model.recformer_model import RecformerModel
 from service.base_service import BaseService
 from service.claude_service import Claude21Service, Claude3Service
 from service.gemini_service import GeminiService
@@ -23,9 +24,6 @@ from utils.function import load_processor
 from utils.gpu import GPU
 from utils.metrics import MetricPool
 from utils.tqdm_printer import TqdmPrinter
-
-pigmento.add_time_prefix()
-pnt.set_basic_printer(TqdmPrinter())
 
 
 class Worker:
@@ -40,7 +38,7 @@ class Worker:
             Llama1Model, Llama2Model,
             OPT1BModel, OPT350MModel,
             QWen2TH7BModel, GLM4TH9BModel, Mistral7BModel, Phi3TH7BModel,
-            P5BeautyModel
+            P5BeautyModel, RecformerModel,
         ]
 
         self.conf = conf
@@ -51,9 +49,6 @@ class Worker:
         assert self.type in ['prompt', 'embed'], f'Type {self.type} is not supported.'
         self.use_prompt = self.type == 'prompt'
         self.use_embed = self.type == 'embed'
-
-        self.device_ids: Optional[list] = None
-        self.cuda: Optional[str] = None
 
         self.processor = load_processor(self.data)
         self.processor.load()
@@ -69,11 +64,20 @@ class Worker:
         pigmento.add_log_plugin(os.path.join(self.log_dir, f'{self.model}.log'))
         self.exporter = Exporter(os.path.join(self.log_dir, f'{self.model}.dat'))
 
+    def get_device(self):
+        if self.conf.gpu is None:
+            return GPU.auto_choose(torch_format=True)
+        if self.conf.gpu == -1:
+            pnt('manually choosing CPU device')
+            return 'cpu'
+        pnt(f'manually choosing {self.conf.gpu}-th GPU')
+        return f'cuda:{self.conf.gpu}'
+
     def load_model_or_service(self):
         for model in self.models:
             if model.get_name() == self.model:
                 pnt(f'loading {model.get_name()} model')
-                return model(device=GPU.auto_choose(torch_format=True))
+                return model(device=self.get_device())
         for service in self.services:
             if service.get_name() == self.model:
                 pnt(f'loading {service.get_name()} service')
@@ -113,7 +117,7 @@ class Worker:
 
             if self.use_service:
                 response = response.replace('\n', '').replace('\r', '')
-            pnt(f'Click: {click}, Response: {response}', current=index + 1, count=len(self.processor.test_set))
+            pnt(f'click: {click}, response: {response}', current=index + 1, count=len(self.processor.test_set))
             self.exporter.write(response)
             self.exporter.save_progress(index + 1)
         TqdmPrinter.deactivate()
@@ -129,7 +133,11 @@ class Worker:
         user_dict = self.exporter.load_embed('user')
 
         TqdmPrinter.activate()
-        for index, data in enumerate(self.processor.generate(slicer=self.conf.slicer, source=self.conf.source)):
+        for index, data in enumerate(self.processor.generate(
+                slicer=self.conf.slicer,
+                source=self.conf.source,
+                as_dict=self.caller.AS_DICT
+        )):
             if index < progress:
                 continue
 
@@ -139,12 +147,15 @@ class Worker:
             if uid in user_dict:
                 user_embed = user_dict[uid]
             else:
-                for i in range(len(history)):
-                    _history = [f'({j + 1}) {history[i + j]}' for j in range(len(history) - i)]
-                    history_sequence = history_template.format('\n'.join(_history))
-                    user_embed = self.caller.embed(history_sequence)
-                    if user_embed is not None:
-                        break
+                if self.caller.AS_DICT:
+                    user_embed = self.caller.embed(history)
+                else:
+                    for i in range(len(history)):
+                        _history = [f'({j + 1}) {history[i + j]}' for j in range(len(history) - i)]
+                        history_sequence = history_template.format('\n'.join(_history))
+                        user_embed = self.caller.embed(history_sequence)
+                        if user_embed is not None:
+                            break
                 if user_embed is None:
                     pnt(f'failed to get user embeds for {index} ({uid}, {iid})')
                     self.exporter.save_progress(index)
@@ -156,12 +167,15 @@ class Worker:
             if iid in item_dict:
                 item_embed = item_dict[iid]
             else:
-                for _ in range(5):
-                    candidate_sequence = candidate_template.format(candidate)
-                    item_embed = self.caller.embed(candidate_sequence)
-                    if item_embed is None:
-                        candidate = candidate[:len(candidate) // 2]
-                        continue
+                if self.caller.AS_DICT:
+                    item_embed = self.caller.embed([candidate])
+                else:
+                    for _ in range(5):
+                        candidate_sequence = candidate_template.format(candidate)
+                        item_embed = self.caller.embed(candidate_sequence)
+                        if item_embed is None:
+                            candidate = candidate[:len(candidate) // 2]
+                            continue
                 if item_embed is None:
                     pnt(f'failed to get item embeds for {index} ({uid}, {iid})')
                     self.exporter.save_progress(index)
@@ -173,7 +187,7 @@ class Worker:
             th_user_embed = torch.tensor(user_embed)
 
             score = float(torch.cosine_similarity(th_item_embed, th_user_embed, dim=0))
-            pnt(f'Click: {click}, Score: {score}', current=index + 1, count=len(self.processor.test_set))
+            pnt(f'click: {click}, score: {score}', current=index + 1, count=len(self.processor.test_set))
             self.exporter.write(score)
             self.exporter.save_progress(index + 1)
         TqdmPrinter.deactivate()
@@ -233,6 +247,13 @@ class Worker:
 
 
 if __name__ == '__main__':
+    pigmento.add_time_prefix()
+    pnt.set_basic_printer(TqdmPrinter())
+    pnt.set_display_mode(
+        use_instance_class=True,
+        display_method_name=False
+    )
+
     configuration = ConfigInit(
         required_args=['data', 'model'],
         default_args=dict(

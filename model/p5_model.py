@@ -11,12 +11,18 @@ from model.p5.tokenization import P5Tokenizer
 
 
 class P5Model(BaseModel, abc.ABC):
+    PREFIX_PROMPT = CHAT_SYSTEM
+    SUFFIX_PROMPT = SIMPLE_SUFFIX
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self.backbone = 't5-base'
+        self.backbone, self.key = self.key.split('$')
+
         self.max_len = 512
         config = T5Config.from_pretrained(self.backbone)
+        self.start_token = config.decoder_start_token_id
+        self.decoder_input_ids = torch.tensor([self.start_token]).unsqueeze(0).to(self.device)
 
         self.tokenizer = P5Tokenizer.from_pretrained(
             self.backbone,
@@ -36,8 +42,8 @@ class P5Model(BaseModel, abc.ABC):
 
         self.model.to(self.device)
 
-        import pdb
-        pdb.set_trace()
+        self.yes_token = self.tokenizer.convert_tokens_to_ids('YES')
+        self.no_token = self.tokenizer.convert_tokens_to_ids('NO')
 
     def load_state_dict(self):
         state_dict = torch.load(self.key, map_location='cpu')
@@ -48,11 +54,6 @@ class P5Model(BaseModel, abc.ABC):
                 state_dict[new_key] = state_dict.pop(key)
         self.model.load_state_dict(state_dict, strict=False)
 
-    def generate_input_ids(self, content, wrap_ask=True) -> torch.Tensor:
-        if wrap_ask:
-            content = CHAT_SYSTEM + content + SIMPLE_SUFFIX
-        return self.tokenizer.encode(content, return_tensors='pt')
-
     def ask(self, content) -> Optional[float]:
         input_ids = self.generate_input_ids(content, wrap_ask=True)
         input_ids = input_ids.to(self.device)
@@ -62,7 +63,10 @@ class P5Model(BaseModel, abc.ABC):
 
         # feed-forward
         with torch.no_grad():
-            output = self.model(input_ids=input_ids)
+            output = self.model(
+                input_ids=input_ids,
+                decoder_input_ids=self.decoder_input_ids,
+            )
             logits = output.logits
 
         # get logits of last token
@@ -84,9 +88,12 @@ class P5Model(BaseModel, abc.ABC):
 
         # feed-forward
         with torch.no_grad():
-            output = self.model(input_ids=input_ids, output_hidden_states=True)
-        # get embeddings of last token
-        embeddings = output.hidden_states[-1][0, -1, :]
+            output = self.model(
+                input_ids=input_ids,
+                decoder_input_ids=self.decoder_input_ids,
+                output_hidden_states=True
+            )
+        embeddings = output.decoder_last_hidden_state[0, -1, :]
         return embeddings.cpu().detach().numpy()
 
 

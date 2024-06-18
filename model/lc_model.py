@@ -9,6 +9,9 @@ from utils.auth import HF_KEY
 
 
 class LongContextModel(BaseModel, abc.ABC):
+    PREFIX_PROMPT = CHAT_SYSTEM
+    SUFFIX_PROMPT = SIMPLE_SUFFIX
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -24,10 +27,8 @@ class LongContextModel(BaseModel, abc.ABC):
 
         self.model.to(self.device)
 
-    def generate_input_ids(self, content, wrap_ask=True):
-        if wrap_ask:
-            content = CHAT_SYSTEM + content + SIMPLE_SUFFIX
-        return self.tokenizer.encode(content, return_tensors='pt')
+    def _generate_input_ids(self, content):
+        return self.tokenizer.encode(content, return_tensors='pt', add_special_tokens=False)
 
 
 class QWen2TH7BModel(LongContextModel):
