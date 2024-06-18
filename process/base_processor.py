@@ -5,14 +5,13 @@ from typing import Union, Callable, Optional
 
 import pandas as pd
 from pigmento import pnt
-from tqdm import tqdm
 
 
 class BaseProcessor(abc.ABC):
     IID_COL: str
     UID_COL: str
     HIS_COL: str
-    CLK_COL: str
+    LBL_COL: str
 
     NUM_TEST: int
     NUM_FINETUNE: int
@@ -137,19 +136,19 @@ class BaseProcessor(abc.ABC):
         for _, row in dataframe.iterrows():
             uid = row[self.UID_COL]
             candidate = row[self.IID_COL]
-            click = row[self.CLK_COL]
+            label = row[self.LBL_COL]
 
             user = self.users.loc[self.user_vocab[uid]]
             history = slicer(user[self.HIS_COL])
 
             if id_only:
-                yield uid, candidate, history, click
+                yield uid, candidate, history, label
                 continue
 
             history_str = [self.organize_item(iid, item_attrs, as_dict=as_dict) for iid in history]
             candidate_str = self.organize_item(candidate, item_attrs, as_dict=as_dict)
 
-            yield uid, candidate, history_str, candidate_str, click
+            yield uid, candidate, history_str, candidate_str, label
 
     def get_source_set(self, source):
         assert source in ['test', 'finetune', 'original'], 'source must be test, finetune, or original'
@@ -194,10 +193,10 @@ class BaseProcessor(abc.ABC):
     def _split(self, iterator, count):
         df = pd.DataFrame()
         for group in iterator:
-            for click in range(2):
-                group_click = group[group[self.CLK_COL] == click]
-                selected_group_click = group_click.sample(n=min(self.MAX_INTERACTIONS_PER_USER // 2, len(group_click)), replace=False)
-                df = pd.concat([df, selected_group_click])
+            for label in range(2):
+                group_lbl = group[group[self.LBL_COL] == label]
+                selected_group_lbl = group_lbl.sample(n=min(self.MAX_INTERACTIONS_PER_USER // 2, len(group_lbl)), replace=False)
+                df = pd.concat([df, selected_group_lbl])
             if len(df) >= count:
                 break
         return df

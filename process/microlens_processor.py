@@ -9,7 +9,7 @@ class MicroLensProcessor(NSProcessor, USPEProcessor):
     IID_COL = 'item'
     UID_COL = 'user'
     HIS_COL = 'history'
-    CLK_COL = 'click'
+    LBL_COL = 'click'
 
     POS_COUNT = 2
     NEG_RATIO = 2
@@ -17,7 +17,7 @@ class MicroLensProcessor(NSProcessor, USPEProcessor):
     NUM_TEST = 20000
     NUM_FINETUNE = 100000
 
-    REQUIRE_STRINGIFY = False
+    REQUIRE_STRINGIFY = True
 
     @property
     def default_attrs(self):

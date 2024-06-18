@@ -21,10 +21,10 @@ class UICTProcessor(USPEProcessor, abc.ABC):
 
         interactions = interactions[interactions[self.IID_COL].isin(item_set)]
         interactions = interactions.groupby(self.UID_COL)
-        interactions = interactions.filter(lambda x: x[self.CLK_COL].nunique() == 2)
+        interactions = interactions.filter(lambda x: x[self.LBL_COL].nunique() == 2)
         self._interactions = interactions
 
-        pos_inters = interactions[interactions[self.CLK_COL] == 1]
+        pos_inters = interactions[interactions[self.LBL_COL] == 1]
 
         users = pos_inters.sort_values(
             [self.UID_COL, self.DAT_COL]
@@ -36,7 +36,7 @@ class UICTProcessor(USPEProcessor, abc.ABC):
     def load_interactions(self) -> pd.DataFrame:
         user_set = set(self.users[self.UID_COL].unique())
 
-        neg_inters = self._interactions[self._interactions[self.CLK_COL] == 0]
+        neg_inters = self._interactions[self._interactions[self.LBL_COL] == 0]
         neg_inters = neg_inters[neg_inters[self.UID_COL].isin(user_set)]
         neg_inters = neg_inters.drop(columns=[self.DAT_COL])
 

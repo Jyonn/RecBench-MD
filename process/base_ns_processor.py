@@ -45,7 +45,7 @@ class NSProcessor(BaseProcessor, abc.ABC):
                 neg_item = items[random.randint(0, num_items - 1)]
                 while neg_item in user_interactions:
                     neg_item = items[random.randint(0, num_items - 1)]
-                interactions.append({self.UID_COL: user_id, self.IID_COL: neg_item, self.CLK_COL: 0})
+                interactions.append({self.UID_COL: user_id, self.IID_COL: neg_item, self.LBL_COL: 0})
         interactions = pd.DataFrame(interactions)
         interactions = pd.concat([interactions, self._pos_inters], ignore_index=True)
         return interactions

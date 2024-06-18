@@ -10,7 +10,7 @@ class MINDProcessor(BaseProcessor):
     IID_COL = 'nid'
     UID_COL = 'uid'
     HIS_COL = 'history'
-    CLK_COL = 'click'
+    LBL_COL = 'click'
 
     NUM_TEST = 20000
     NUM_FINETUNE = 100000

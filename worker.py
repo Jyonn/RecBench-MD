@@ -196,7 +196,7 @@ class Worker:
         scores = self.exporter.read(from_convert=self.use_service)  # type: List[float]
 
         source_set = self.processor.get_source_set(self.conf.source)
-        labels = source_set[self.processor.CLK_COL].values
+        labels = source_set[self.processor.LBL_COL].values
         groups = source_set[self.processor.UID_COL].values
 
         pool = MetricPool.parse(self.conf.metrics.split('|'))

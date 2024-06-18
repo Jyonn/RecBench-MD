@@ -68,13 +68,12 @@ def load_processors():
     return [
         MINDProcessor,
         MicroLensProcessor,
-        # SteamProcessor,
-        # YelpProcessor,
-        # GoodreadsProcessor,
-        # MovieLensProcessor,
-        # ElectronicsProcessor,
-        # HMProcessor,
-        # LastFMProcessor,
+        SteamProcessor,
+        YelpProcessor,
+        GoodreadsProcessor,
+        MovieLensProcessor,
+        ElectronicsProcessor,
+        HMProcessor,
     ]
 
 

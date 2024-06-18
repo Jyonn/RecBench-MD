@@ -9,7 +9,7 @@ class YelpProcessor(UICTProcessor):
     UID_COL = 'user_id'
     IID_COL = 'business_id'
     HIS_COL = 'history'
-    CLK_COL = 'click'
+    LBL_COL = 'click'
     DAT_COL = 'date'
 
     POS_COUNT = 2

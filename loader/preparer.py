@@ -13,6 +13,12 @@ from utils.tqdm_printer import TqdmPrinter
 
 
 class Preparer:
+    IID_COL = 'iid'
+    UID_COL = 'uid'
+    LEN_COl = 'length'
+    IPT_COl = 'input_ids'
+    LBL_COl = 'label'
+
     def __init__(self, processor: BaseProcessor, model: BaseModel, conf):
         self.processor = processor
         self.model = model
@@ -20,12 +26,12 @@ class Preparer:
 
         self.store_dir = os.path.join(
             'prepare',
-            f'{self.processor.get_name()}_{self.model.get_name()}, '
-            f'ratio_{self.conf.valid_ratio}'
+            f'{self.processor.get_name()}_{self.model.get_name()}',
+            f'{self.conf.valid_ratio}'
         )
         os.makedirs(self.store_dir, exist_ok=True)
-        self.iid_vocab = Vocab(name='iid')
-        self.uid_vocab = Vocab(name='uid')
+        self.iid_vocab = Vocab(name=self.IID_COL)
+        self.uid_vocab = Vocab(name=self.UID_COL)
 
         self.train_datapath = os.path.join(self.store_dir, 'train.parquet')
         self.valid_datapath = os.path.join(self.store_dir, 'valid.parquet')
@@ -40,7 +46,7 @@ class Preparer:
         for iid in item_set:
             item_str = self.processor.organize_item(iid, item_attrs)
             item_ids = self.model.generate_simple_input_ids(item_str)
-            item_dict[iid] = item_ids
+            item_dict[iid] = item_ids[:self.model.max_len // 5]
         return item_dict
 
     def load_datalist(self):
@@ -53,7 +59,7 @@ class Preparer:
         max_sequence_len = 0
         for index, data in enumerate(self.processor.generate(slicer=self.conf.slicer, source='finetune', id_only=True)):
             pnt(f'preprocessing on the {self.processor.get_name()} dataset', current=index + 1, count=len(self.processor.finetune_set))
-            uid, iid, history, click = data
+            uid, iid, history, label = data
 
             current_item = items[iid][:]
             init_length = len(prefix) + len(user) + len(suffix)
@@ -61,35 +67,35 @@ class Preparer:
             for _ in range(5):
                 current_length = init_length + len(current_item)
 
-                index = len(history) - 1
-                while index >= 0:
-                    current_len = len(items[history[index]]) + len(numbers[len(history) - index]) + len(line)
+                idx = len(history) - 1
+                while idx >= 0:
+                    current_len = len(items[history[idx]]) + len(numbers[len(history) - idx]) + len(line)
                     if current_length + current_len <= self.model.max_len:
                         current_length += current_len
                     else:
                         break
-                    index -= 1
+                    idx -= 1
 
-                if index == len(history) - 1:
+                if idx == len(history) - 1:
                     current_item = current_item[:len(current_item) // 2]
                     continue
 
                 input_ids = prefix + user
-                for i in range(max(index, 0), len(history)):
+                for i in range(max(idx, 0), len(history)):
                     input_ids += numbers[len(history) - i] + items[history[i]] + line
                 input_ids += item + current_item + suffix
                 break
 
             assert input_ids is not None, f'failed to get input_ids for {index} ({uid}, {iid})'
             max_sequence_len = max(max_sequence_len, len(input_ids))
-            datalist.append({'input_ids': input_ids, 'labels': click, 'uid': uid, 'iid': iid})
+            datalist.append({self.IPT_COl: input_ids, self.LBL_COl: label, self.UID_COL: uid, self.IID_COL: iid})
         TqdmPrinter.deactivate()
 
         for data in datalist:
-            data['length'] = len(data['input_ids'])
-            data['input_ids'] = data['input_ids'] + [0] * (max_sequence_len - data['length'])
-            data['uid'] = self.uid_vocab.append(data['uid'])
-            data['iid'] = self.iid_vocab.append(data['iid'])
+            data[self.LEN_COl] = len(data[self.IPT_COl])
+            data[self.IPT_COl] = data[self.IPT_COl] + [0] * (max_sequence_len - data[self.LEN_COl])
+            data[self.UID_COL] = self.uid_vocab.append(data[self.UID_COL])
+            data[self.IID_COL] = self.iid_vocab.append(data[self.IID_COL])
 
         return datalist
 
@@ -99,7 +105,7 @@ class Preparer:
         train_datalist = []
         valid_datalist = []
         for data in datalist:
-            if data[self.processor.UID_COL] in valid_user_set:
+            if data[self.UID_COL] in valid_user_set:
                 valid_datalist.append(data)
             else:
                 train_datalist.append(data)

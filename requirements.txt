@@ -1,16 +1,21 @@
-torch
-pigmento
-anthropic
-openai==0.28.0
-transformers
-tqdm
-pandas
+torch~=2.0.1
+pigmento~=0.2.2
+anthropic~=0.28.0
+openai~=0.27.2
+transformers~=4.30.2
+tqdm~=4.64.1
+pandas~=1.4.4
 tokenizers==0.12.1
-smartdict
-oba
-numpy
+smartdict~=0.0.3
+oba~=0.0.6
+numpy~=1.23.2
 google-generativeai  # for gemini service
 einop  # for phi model
 pytest  # for phi model
 tiktoken  # for glm model
 flash-attn  # for phi model
+sentencepiece~=0.1.99
+peft~=0.3.0
+scikit-learn~=1.1.2
+refconfig~=0.0.3
+UniTok~=3.5.1

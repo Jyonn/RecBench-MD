@@ -10,7 +10,7 @@ class SteamProcessor(NSProcessor, USPEProcessor):
     IID_COL = 'app_id'
     UID_COL = 'user_id'
     HIS_COL = 'history'
-    CLK_COL = 'click'
+    LBL_COL = 'click'
 
     POS_COUNT = 2
     NEG_RATIO = 2

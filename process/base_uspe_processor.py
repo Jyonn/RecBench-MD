@@ -25,7 +25,7 @@ class USPEProcessor(BaseProcessor, abc.ABC):
                 pos_inters.append({
                     self.UID_COL: row[self.UID_COL],
                     self.IID_COL: row[self.HIS_COL][-(i + 1)],
-                    self.CLK_COL: 1
+                    self.LBL_COL: 1
                 })
         self._pos_inters = pd.DataFrame(pos_inters)
 

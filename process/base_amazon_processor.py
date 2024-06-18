@@ -12,7 +12,7 @@ class AmazonProcessor(UICTProcessor):
     UID_COL = 'reviewerID'
     IID_COL = 'asin'
     HIS_COL = 'history'
-    CLK_COL = 'click'
+    LBL_COL = 'click'
     DAT_COL = 'reviewTime'
 
     POS_COUNT = 2

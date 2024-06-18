@@ -11,7 +11,7 @@ class HMProcessor(NSProcessor, USPEProcessor):
     IID_COL = 'article_id'
     UID_COL = 'customer_id'
     HIS_COL = 'history'
-    CLK_COL = 'click'
+    LBL_COL = 'click'
     DAT_COL = 't_dat'
 
     POS_COUNT = 2

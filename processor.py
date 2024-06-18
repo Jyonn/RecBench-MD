@@ -23,7 +23,7 @@ if __name__ == '__main__':
 
     # interactions.filter(lambda x: x[self.CLK_COL].nunique() == 2)
     groups = processor.interactions.groupby(processor.UID_COL)
-    groups = groups.filter(lambda x: x[processor.CLK_COL].nunique() < 2)
+    groups = groups.filter(lambda x: x[processor.LBL_COL].nunique() < 2)
     print(groups)
 
     count = 0

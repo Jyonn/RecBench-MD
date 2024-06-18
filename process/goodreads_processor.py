@@ -12,7 +12,7 @@ class GoodreadsProcessor(UICTProcessor):
     IID_COL = 'bid'
     UID_COL = 'uid'
     HIS_COL = 'history'
-    CLK_COL = 'click'
+    LBL_COL = 'click'
     DAT_COL = 'date'
 
     NUM_TEST = 20000

@@ -9,7 +9,7 @@ from process.base_uspe_processor import USPEProcessor
 class LastFMProcessor(USPEProcessor, NSProcessor):
     UID_COL = 'uid'
     IID_COL = 'tid'
-    CLK_COL = 'click'
+    LBL_COL = 'click'
     HIS_COL = 'history'
     DAT_COL = 'time'
 

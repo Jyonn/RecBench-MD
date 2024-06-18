@@ -7,7 +7,7 @@ class MovieLensProcessor(UICTProcessor):
     IID_COL = 'movieId'
     UID_COL = 'userId'
     HIS_COL = 'his'
-    CLK_COL = 'click'
+    LBL_COL = 'click'
     DAT_COL = 'timestamp'
 
     POS_COUNT = 2
