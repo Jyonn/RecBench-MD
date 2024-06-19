@@ -2,7 +2,9 @@ from typing import Optional
 
 import torch
 from peft import LoraConfig, get_peft_model
+from pigmento import pnt
 
+from loader.map import Map
 from utils import model
 
 
@@ -23,7 +25,6 @@ class BaseModel:
         self.yes_token = None
         self.no_token = None
 
-        self.peft_config = None
         self.loss_fct = torch.nn.CrossEntropyLoss()
         self.softmax = torch.nn.Softmax(dim=0)
 
@@ -31,12 +32,17 @@ class BaseModel:
     def label_tokens(self):
         return torch.tensor([self.no_token, self.yes_token])
 
-    def prepare_model_finetuning(self, lora_r, lora_alpha, lora_dropout):
+    def prepare_model_finetuning(self, conf):
+        if not conf.use_lora:
+            pnt(f'fully finetuning {self.get_name()} model without lora')
+            return
+
+        pnt(f'finetuning {self.get_name()} model with lora ({conf.lora_r}, {conf.lora_alpha}, {conf.lora_dropout})')
         peft_config = LoraConfig(
             inference_mode=False,
-            r=lora_r,
-            lora_alpha=lora_alpha,
-            lora_dropout=lora_dropout
+            r=conf.lora_r,
+            lora_alpha=conf.lora_alpha,
+            lora_dropout=conf.lora_dropout
         )
         self.model = get_peft_model(self.model, peft_config)
 
@@ -54,22 +60,23 @@ class BaseModel:
         return self.tokenizer.encode(content, return_tensors='pt', add_special_tokens=False)
 
     def generate_simple_input_ids(self, content) -> list:
-        return self.tokenizer.encode(content, add_special_tokens=False)
+        return self.tokenizer.encode(content or '', add_special_tokens=False)
 
     def finetune(self, batch):
-        logits = self.model(batch['input_ids'].to(self.device))  # [B, L, V]
-        logits = torch.gather(logits, 1, batch['length'].view(-1, 1, 1).expand(-1, 1, logits.size(-1))).squeeze(1)  # [B, V]
+        logits = self.model(batch[Map.IPT_COl].to(self.device)).logits  # [B, L, V]
+        indices = (batch[Map.LEN_COl] - 1).view(-1, 1, 1).expand(-1, 1, logits.size(-1)).to(self.device)
+        logits = torch.gather(logits, 1, indices).squeeze(1)  # [B, V]
 
-        labels = self.label_tokens[batch['labels']].to(self.device)
-        loss = self.loss_fct(logits, labels)
-        loss.backward()
-        return loss.item()
+        labels = self.label_tokens[batch[Map.LBL_COl]].to(self.device)
+        return self.loss_fct(logits, labels)
 
     def evaluate(self, batch):
-        logits = self.model(batch['input_ids'].to(self.device))
-        logits = torch.gather(logits, 1, batch['length'].view(-1, 1, 1).expand(-1, 1, logits.size(-1))).squeeze(1)
+        logits = self.model(batch[Map.IPT_COl].to(self.device))
+        indices = (batch[Map.LEN_COl] - 1).view(-1, 1, 1).expand(-1, 1, logits.size(-1)).to(self.device)
+        logits = torch.gather(logits, 1, indices).squeeze(1)
 
-        logits = logits[:, self.label_tokens.to(self.device)]  # [B, 2]
+        labels = self.label_tokens[batch[Map.LBL_COl]].to(self.device)
+        logits = logits[:, labels]  # [B, 2]
         return self.softmax(logits)[0].detach().cpu().tolist()
 
     def ask(self, content) -> Optional[float]:

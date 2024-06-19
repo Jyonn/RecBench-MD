@@ -1,5 +1,5 @@
-import os.path
-from typing import Union, Optional, List, cast
+import os
+from typing import Union, Optional, List
 
 import numpy as np
 import pigmento
@@ -258,7 +258,6 @@ if __name__ == '__main__':
         required_args=['data', 'model'],
         default_args=dict(
             slicer=-20,
-            ngpus=1,
             gpu=None,
             source='test',
             metrics='|'.join(['GAUC', 'NDCG@1', 'NDCG@5', 'MRR', 'F1', 'Recall@1', 'Recall@5']),

@@ -28,6 +28,19 @@ class BertModel(BaseModel, abc.ABC):
         # load to device
         self.model.to(self.device)
 
+    def generate_input_ids(self, content, wrap_ask=True) -> torch.Tensor:
+        # concat system and content, and append [MASK] token for prediction
+        if wrap_ask:
+            content = self.PREFIX_PROMPT + content + self.SUFFIX_PROMPT
+        input_ids = self.tokenizer.tokenize(content)
+        input_ids = self.tokenizer.convert_tokens_to_ids(input_ids) + [self.mask_token]
+        return torch.tensor(input_ids).unsqueeze(0)
+
+    def get_special_tokens(self):
+        line, numbers, user, item, prefix, suffix = super().get_special_tokens()
+        suffix += [self.mask_token]
+        return line, numbers, user, item, prefix, suffix
+
 
 class BertBaseModel(BertModel):
     pass

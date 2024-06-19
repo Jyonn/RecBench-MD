@@ -18,13 +18,13 @@ class HMProcessor(NSProcessor, USPEProcessor):
     NEG_RATIO = 2
 
     NUM_TEST = 20000
-    NUM_FINETUNE = 10000
+    NUM_FINETUNE = 0
 
     REQUIRE_STRINGIFY = False
 
     @property
     def default_attrs(self):
-        return ['detail_desc']  # 指定文本信息Title
+        return ['detail_desc']
 
     def load_items(self) -> pd.DataFrame:
         path = os.path.join(self.data_dir, "articles.csv")

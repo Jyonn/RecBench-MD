@@ -2,6 +2,8 @@ import pandas as pd
 import torch
 from torch.utils.data import Dataset as BaseDataset
 
+from loader.map import Map
+
 
 class Dataset(BaseDataset):
     def __init__(self, datalist: pd.DataFrame):
@@ -13,10 +15,11 @@ class Dataset(BaseDataset):
     def __getitem__(self, idx):
         # return self.datalist[idx]
         values = self.datalist.iloc[idx]
-        return dict(
-            input_ids=torch.tensor(values['input_ids'], dtype=torch.long),
-            labels=torch.tensor(values['labels'], dtype=torch.long),
-            uid=torch.tensor(values['uid'], dtype=torch.long),
-            iid=torch.tensor(values['iid'], dtype=torch.long),
-            length=torch.tensor(values['length'], dtype=torch.long),
-        )
+        # return {k: torch.tensor(values[k], dtype=torch.long) for k in values}
+        return {
+            Map.IPT_COl: torch.tensor(values[Map.IPT_COl], dtype=torch.long),
+            Map.LBL_COl: torch.tensor(values[Map.LBL_COl], dtype=torch.long),
+            Map.UID_COL: torch.tensor(values[Map.UID_COL], dtype=torch.long),
+            Map.IID_COL: torch.tensor(values[Map.IID_COL], dtype=torch.long),
+            Map.LEN_COl: torch.tensor(values[Map.LEN_COl], dtype=torch.long),
+        }

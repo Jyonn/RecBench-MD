@@ -7,18 +7,13 @@ from pigmento import pnt
 from torch.utils.data import DataLoader
 
 from loader.dataset import Dataset
+from loader.map import Map
 from model.base_model import BaseModel
 from process.base_processor import BaseProcessor
 from utils.tqdm_printer import TqdmPrinter
 
 
 class Preparer:
-    IID_COL = 'iid'
-    UID_COL = 'uid'
-    LEN_COl = 'length'
-    IPT_COl = 'input_ids'
-    LBL_COl = 'label'
-
     def __init__(self, processor: BaseProcessor, model: BaseModel, conf):
         self.processor = processor
         self.model = model
@@ -30,8 +25,8 @@ class Preparer:
             f'{self.conf.valid_ratio}'
         )
         os.makedirs(self.store_dir, exist_ok=True)
-        self.iid_vocab = Vocab(name=self.IID_COL)
-        self.uid_vocab = Vocab(name=self.UID_COL)
+        self.iid_vocab = Vocab(name=Map.IID_COL)
+        self.uid_vocab = Vocab(name=Map.UID_COL)
 
         self.train_datapath = os.path.join(self.store_dir, 'train.parquet')
         self.valid_datapath = os.path.join(self.store_dir, 'valid.parquet')
@@ -62,7 +57,7 @@ class Preparer:
             uid, iid, history, label = data
 
             current_item = items[iid][:]
-            init_length = len(prefix) + len(user) + len(suffix)
+            init_length = len(prefix) + len(user) + len(suffix) + len(item)
             input_ids: Optional[list] = None
             for _ in range(5):
                 current_length = init_length + len(current_item)
@@ -81,21 +76,23 @@ class Preparer:
                     continue
 
                 input_ids = prefix + user
-                for i in range(max(idx, 0), len(history)):
+                for i in range(idx + 1, len(history)):
                     input_ids += numbers[len(history) - i] + items[history[i]] + line
                 input_ids += item + current_item + suffix
                 break
 
             assert input_ids is not None, f'failed to get input_ids for {index} ({uid}, {iid})'
             max_sequence_len = max(max_sequence_len, len(input_ids))
-            datalist.append({self.IPT_COl: input_ids, self.LBL_COl: label, self.UID_COL: uid, self.IID_COL: iid})
+            datalist.append({Map.IPT_COl: input_ids, Map.LBL_COl: label, Map.UID_COL: uid, Map.IID_COL: iid})
         TqdmPrinter.deactivate()
 
         for data in datalist:
-            data[self.LEN_COl] = len(data[self.IPT_COl])
-            data[self.IPT_COl] = data[self.IPT_COl] + [0] * (max_sequence_len - data[self.LEN_COl])
-            data[self.UID_COL] = self.uid_vocab.append(data[self.UID_COL])
-            data[self.IID_COL] = self.iid_vocab.append(data[self.IID_COL])
+            data[Map.LEN_COl] = len(data[Map.IPT_COl])
+            data[Map.IPT_COl] = data[Map.IPT_COl] + [0] * (max_sequence_len - data[Map.LEN_COl])
+            data[Map.UID_COL] = self.uid_vocab.append(data[Map.UID_COL])
+            data[Map.IID_COL] = self.iid_vocab.append(data[Map.IID_COL])
+
+        pnt(f'{self.processor.get_name()} dataset: max_sequence_len: {max_sequence_len}')
 
         return datalist
 
@@ -105,7 +102,7 @@ class Preparer:
         train_datalist = []
         valid_datalist = []
         for data in datalist:
-            if data[self.UID_COL] in valid_user_set:
+            if data[Map.UID_COL] in valid_user_set:
                 valid_datalist.append(data)
             else:
                 train_datalist.append(data)
@@ -133,10 +130,11 @@ class Preparer:
             train_datalist.to_parquet(self.train_datapath)
             valid_datalist.to_parquet(self.valid_datapath)
 
-        train_dataset = Dataset(train_datalist)
+        # train_dataset = Dataset(train_datalist)
         valid_dataset = Dataset(valid_datalist)
-
-        train_dataloader = DataLoader(train_dataset, batch_size=self.conf.batch_size, shuffle=True)
+        #
+        # train_dataloader = DataLoader(train_dataset, batch_size=self.conf.batch_size, shuffle=True)
         valid_dataloader = DataLoader(valid_dataset, batch_size=self.conf.batch_size, shuffle=False)
-
-        return train_dataloader, valid_dataloader
+        #
+        # return train_dataloader, valid_dataloader
+        return train_datalist, valid_dataloader

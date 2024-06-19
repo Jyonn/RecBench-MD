@@ -102,13 +102,14 @@ class BaseProcessor(abc.ABC):
         self.user_vocab = dict(zip(self.users[self.UID_COL], self.users.index))
 
         self.load_public_sets()
-        # self._loaded = True
+
+        return self
 
     def organize_item(self, iid, item_attrs: list, as_dict=False):
         item = self.items.loc[self.item_vocab[iid]]
 
         if as_dict:
-            return {attr: item[attr] for attr in item_attrs}
+            return {attr: item[attr] or '' for attr in item_attrs}
 
         if len(item_attrs) == 1:
             return item[item_attrs[0]]
