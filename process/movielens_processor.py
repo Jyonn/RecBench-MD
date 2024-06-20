@@ -17,11 +17,6 @@ class MovieLensProcessor(UICTProcessor):
 
     REQUIRE_STRINGIFY = False
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
-        self.pos_inters = None
-
     @property
     def default_attrs(self):
         return ['title']
@@ -46,7 +41,7 @@ class MovieLensProcessor(UICTProcessor):
 
         # filter out rating = 3
         interactions = interactions[interactions['rating'] != 3]
-        interactions[self.CLK_COL] = interactions['rating'] > 3
+        interactions[self.LBL_COL] = interactions['rating'] > 3
         interactions.drop(columns=['rating'], inplace=True)
 
         return self._load_users(interactions)

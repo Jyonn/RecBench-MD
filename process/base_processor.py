@@ -98,15 +98,15 @@ class BaseProcessor(abc.ABC):
                 lambda x: [str(item) for item in x]
             )
 
-        self.item_vocab = dict(zip(self.items[self.IID_COL], self.items.index))
-        self.user_vocab = dict(zip(self.users[self.UID_COL], self.users.index))
+        self.item_vocab = dict(zip(self.items[self.IID_COL], range(len(self.items))))
+        self.user_vocab = dict(zip(self.users[self.UID_COL], range(len(self.users))))
 
         self.load_public_sets()
 
         return self
 
     def organize_item(self, iid, item_attrs: list, as_dict=False):
-        item = self.items.loc[self.item_vocab[iid]]
+        item = self.items.iloc[self.item_vocab[iid]]
 
         if as_dict:
             return {attr: item[attr] or '' for attr in item_attrs}
@@ -139,7 +139,7 @@ class BaseProcessor(abc.ABC):
             candidate = row[self.IID_COL]
             label = row[self.LBL_COL]
 
-            user = self.users.loc[self.user_vocab[uid]]
+            user = self.users.iloc[self.user_vocab[uid]]
             history = slicer(user[self.HIS_COL])
 
             if id_only:
@@ -236,9 +236,26 @@ class BaseProcessor(abc.ABC):
 
         return set(valid_user_set)
 
+    @property
+    def test_set_required(self):
+        return self.NUM_TEST > 0
+
+    @property
+    def finetune_set_required(self):
+        return self.NUM_FINETUNE > 0
+
+    @property
+    def test_set_valid(self):
+        return os.path.exists(os.path.join(self.store_dir, 'test.parquet')) or not self.test_set_required
+
+    @property
+    def finetune_set_valid(self):
+        return os.path.exists(os.path.join(self.store_dir, 'finetune.parquet')) or not self.finetune_set_required
+
     def load_public_sets(self):
-        if os.path.exists(os.path.join(self.store_dir, 'test.parquet')) and \
-                os.path.exists(os.path.join(self.store_dir, 'finetune.parquet')):
+        # if os.path.exists(os.path.join(self.store_dir, 'test.parquet')) and \
+        #         os.path.exists(os.path.join(self.store_dir, 'finetune.parquet')):
+        if self.test_set_valid and self.finetune_set_valid:
             pnt(f'loading {self.get_name()} from cache')
 
             if self.NUM_TEST:
@@ -285,7 +302,7 @@ class BaseProcessor(abc.ABC):
             uid = row[self.UID_COL]
             iid = row[self.IID_COL]
 
-            user = self.users.loc[self.user_vocab[uid]]
+            user = self.users.iloc[self.user_vocab[uid]]
             history = slicer(user[self.HIS_COL])
 
             item_set.add(iid)

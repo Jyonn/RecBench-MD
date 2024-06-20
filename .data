@@ -7,3 +7,5 @@ yelp = /home/data4/qijiong/Data/Yelp
 electronics = /path/to/data
 hm = /path/to/data
 lastfm = /home/data4/qijiong/Data/LastFM/lastfm-dataset-1K
+pens = /home/qijiong/Data/PENS
+cds = /path/to/data

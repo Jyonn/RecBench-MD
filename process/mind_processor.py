@@ -64,7 +64,7 @@ class MINDProcessor(BaseProcessor):
             lambda x: [item.split('-') for item in x]
         )
         interactions = interactions.explode('predict')
-        interactions[[self.IID_COL, self.CLK_COL]] = pd.DataFrame(interactions['predict'].tolist(), index=interactions.index)
+        interactions[[self.IID_COL, self.LBL_COL]] = pd.DataFrame(interactions['predict'].tolist(), index=interactions.index)
         interactions.drop(columns=['predict'], inplace=True)
-        interactions[self.CLK_COL] = interactions[self.CLK_COL].astype(int)
+        interactions[self.LBL_COL] = interactions[self.LBL_COL].astype(int)
         return interactions

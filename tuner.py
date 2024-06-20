@@ -90,9 +90,7 @@ class Tuner:
         train_ds = Dataset(train_dfs)
         train_dl = DataLoader(train_ds, batch_size=self.conf.batch_size, shuffle=True)
 
-        # total_train_steps, total_valid_steps = self._get_steps(train_datalists), self._get_steps(valid_datalists)
         total_train_steps = (len(train_ds) + self.conf.batch_size - 1) // self.conf.batch_size
-        # total_valid_steps = (len(valid_ds) + self.conf.batch_size - 1) // self.conf.batch_size
         total_valid_steps = self._get_steps(valid_dls)
 
         for epoch in range(100):

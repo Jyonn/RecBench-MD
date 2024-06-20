@@ -67,7 +67,7 @@ class AmazonProcessor(UICTProcessor):
 
         interactions['overall'] = interactions['overall'].astype(int)
         interactions = interactions[interactions['overall'] != 3]
-        interactions[self.CLK_COL] = interactions['overall'].apply(lambda x: int(x >= 4))
+        interactions[self.LBL_COL] = interactions['overall'].apply(lambda x: int(x >= 4))
 
         interactions = interactions.drop(columns=['overall'])
         return self._load_users(interactions)

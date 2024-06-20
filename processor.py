@@ -40,8 +40,10 @@ if __name__ == '__main__':
         if count > 2:
             break
 
-    test_set_user = len(processor.test_set[processor.UID_COL].unique())
-    fine_tune_set_user = len(processor.finetune_set[processor.UID_COL].unique())
+    if processor.test_set_required:
+        test_set_user = len(processor.test_set[processor.UID_COL].unique())
+        pnt(f'Test set: {len(processor.test_set)} with {test_set_user} users')
 
-    pnt(f'Test set: {len(processor.test_set)} with {test_set_user} users')
-    pnt(f'Finetune set: {len(processor.finetune_set)} with {fine_tune_set_user} users')
+    if processor.finetune_set_required:
+        fine_tune_set_user = len(processor.finetune_set[processor.UID_COL].unique())
+        pnt(f'Finetune set: {len(processor.finetune_set)} with {fine_tune_set_user} users')

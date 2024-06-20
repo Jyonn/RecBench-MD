@@ -14,9 +14,9 @@ class LastFMProcessor(USPEProcessor, NSProcessor):
     DAT_COL = 'time'
 
     POS_COUNT = 10
-    NEG_RATIO = 20
+    NEG_RATIO = 50
 
-    NUM_TEST = 20000
+    NUM_TEST = 0
     NUM_FINETUNE = 100000
 
     REQUIRE_STRINGIFY = False

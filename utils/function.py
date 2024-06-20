@@ -6,15 +6,7 @@ import numpy as np
 import torch
 from pigmento import pnt
 
-from process.electronics_processor import ElectronicsProcessor
-from process.goodreads_processor import GoodreadsProcessor
-from process.hm_processor import HMProcessor
-from process.microlens_processor import MicroLensProcessor
-from process.mind_processor import MINDProcessor
-from process.movielens_processor import MovieLensProcessor
-from process.steam_processor import SteamProcessor
-from process.yelp_processor import YelpProcessor
-from process.lastfm_processor import LastFMProcessor
+from loader.class_hub import ClassHub
 
 
 def combine_config(config: dict, **kwargs):
@@ -64,23 +56,10 @@ def argparse():
     return kwargs
 
 
-def load_processors():
-    return [
-        MINDProcessor,
-        MicroLensProcessor,
-        SteamProcessor,
-        YelpProcessor,
-        GoodreadsProcessor,
-        MovieLensProcessor,
-        ElectronicsProcessor,
-        HMProcessor,
-    ]
-
-
 def load_processor(dataset, use_cache=True, data_dir=None):
-    processors = load_processors()
-    for processor in processors:
-        if processor.get_name() == dataset:
-            pnt(f'loading {processor.get_name()} processor')
-            return processor(cache=use_cache, data_dir=data_dir)
-    raise ValueError(f'Unknown dataset: {dataset}')
+    processors = ClassHub.processors()
+    if dataset not in processors:
+        raise ValueError(f'Unknown dataset: {dataset}')
+    processor = processors[dataset]
+    pnt(f'loading {processor.get_name()} processor')
+    return processor(cache=use_cache, data_dir=data_dir)

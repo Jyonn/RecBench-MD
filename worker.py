@@ -6,13 +6,8 @@ import pigmento
 import torch
 from pigmento import pnt
 
+from loader.class_hub import ClassHub
 from model.base_model import BaseModel
-from model.bert_model import BertBaseModel, BertLargeModel
-from model.lc_model import QWen2TH7BModel, GLM4TH9BModel, Mistral7BModel, Phi3TH7BModel
-from model.llama_model import Llama1Model, Llama2Model
-from model.opt_model import OPT1BModel, OPT350MModel
-from model.p5_model import P5BeautyModel
-from model.recformer_model import RecformerModel
 from service.base_service import BaseService
 from service.claude_service import Claude21Service, Claude3Service
 from service.gemini_service import GeminiService
@@ -33,13 +28,7 @@ class Worker:
             Claude21Service(auth=CLAUDE_KEY), Claude3Service(auth=CLAUDE_KEY),
             GeminiService(auth=GEMINI_KEY)
         ]
-        self.models = [
-            BertBaseModel, BertLargeModel,
-            Llama1Model, Llama2Model,
-            OPT1BModel, OPT350MModel,
-            QWen2TH7BModel, GLM4TH9BModel, Mistral7BModel, Phi3TH7BModel,
-            P5BeautyModel, RecformerModel,
-        ]
+        self.models = ClassHub.models()
 
         self.conf = conf
         self.data = conf.data.lower()
@@ -74,10 +63,10 @@ class Worker:
         return f'cuda:{self.conf.gpu}'
 
     def load_model_or_service(self):
-        for model in self.models:
-            if model.get_name() == self.model:
-                pnt(f'loading {model.get_name()} model')
-                return model(device=self.get_device())
+        if self.model in self.models:
+            model = self.models[self.model]
+            pnt(f'loading {model.get_name()} model')
+            return model(device=self.get_device())
         for service in self.services:
             if service.get_name() == self.model:
                 pnt(f'loading {service.get_name()} service')
