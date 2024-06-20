@@ -49,6 +49,9 @@ class BaseModel:
     def save(self, path):
         torch.save(self.model.state_dict(), path)
 
+    def load(self, path):
+        self.model.load_state_dict(torch.load(path))
+
     @classmethod
     def get_name(cls):
         return cls.__name__.replace('Model', '').lower()
@@ -62,19 +65,19 @@ class BaseModel:
     def generate_simple_input_ids(self, content) -> list:
         return self.tokenizer.encode(content or '', add_special_tokens=False)
 
-    def finetune(self, batch):
+    def _get_logits(self, batch):
         logits = self.model(batch[Map.IPT_COl].to(self.device)).logits  # [B, L, V]
         indices = (batch[Map.LEN_COl] - 1).view(-1, 1, 1).expand(-1, 1, logits.size(-1)).to(self.device)
-        logits = torch.gather(logits, 1, indices).squeeze(1)  # [B, V]
+        return torch.gather(logits, 1, indices).squeeze(1)  # [B, V]
+
+    def finetune(self, batch):
+        logits = self._get_logits(batch)
 
         labels = self.label_tokens[batch[Map.LBL_COl]].to(self.device)
         return self.loss_fct(logits, labels)
 
     def evaluate(self, batch):
-        logits = self.model(batch[Map.IPT_COl].to(self.device))
-        indices = (batch[Map.LEN_COl] - 1).view(-1, 1, 1).expand(-1, 1, logits.size(-1)).to(self.device)
-        logits = torch.gather(logits, 1, indices).squeeze(1)
-
+        logits = self._get_logits(batch)
         labels = self.label_tokens[batch[Map.LBL_COl]].to(self.device)
         logits = logits[:, labels]  # [B, 2]
         return self.softmax(logits)[0].detach().cpu().tolist()

@@ -98,6 +98,7 @@ class Preparer:
 
     def split_datalist(self, datalist):
         valid_user_set = self.processor.load_valid_user_set(self.conf.valid_ratio)
+        valid_user_set = [self.uid_vocab[uid] for uid in valid_user_set]
 
         train_datalist = []
         valid_datalist = []

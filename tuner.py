@@ -8,6 +8,7 @@ from pigmento import pnt
 from torch.utils.data import DataLoader
 
 from loader.dataset import Dataset
+from loader.map import Map
 from loader.preparer import Preparer
 from model.base_model import BaseModel
 from model.bert_model import BertBaseModel, BertLargeModel
@@ -106,14 +107,16 @@ class Tuner:
                 pnt(f'(Epoch {epoch}), current loss: {loss.item():.4f}', current=index, count=total_train_steps)
             TqdmPrinter.deactivate()
 
+            # self.caller.save('test.pth')
+
             metric_name, metric_values = None, []
             for i_dl, valid_dl in enumerate(valid_dls):
                 TqdmPrinter.activate()
                 score_list, label_list, group_list = [], [], []
                 for index, batch in enumerate(valid_dl):
                     scores = self.caller.evaluate(batch)
-                    labels = batch['labels'].tolist()
-                    groups = batch['uid'].tolist()
+                    labels = batch[Map.LBL_COl].tolist()
+                    groups = batch[Map.UID_COL].tolist()
 
                     score_list.extend(scores)
                     label_list.extend(labels)
