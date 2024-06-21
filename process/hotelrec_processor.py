@@ -29,8 +29,6 @@ class HotelRecProcessor(UICTProcessor):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self.path = os.path.join(self.data_dir, 'HotelRec.txt')
-
     @property
     def default_attrs(self):
         return ['hotel_name', 'hotel_location']
@@ -50,7 +48,8 @@ class HotelRecProcessor(UICTProcessor):
         items = []
         item_set = set()
 
-        with open(self.path, 'r') as f:
+        path = os.path.join(self.data_dir, 'HotelRec.txt')
+        with open(path, 'r') as f:
             for index, line in tqdm(enumerate(f)):
                 if index >= 2e6:
                     break
@@ -69,7 +68,8 @@ class HotelRecProcessor(UICTProcessor):
 
     def load_users(self) -> pd.DataFrame:
         interactions = []
-        with open(self.path, 'r') as f:
+        path = os.path.join(self.data_dir, 'HotelRec.txt')
+        with open(path, 'r') as f:
             for index, line in tqdm(enumerate(f)):
                 if index >= 2e6:
                     break
