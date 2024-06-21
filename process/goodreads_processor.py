@@ -33,7 +33,6 @@ class GoodreadsProcessor(UICTProcessor):
         # if original title strip is empty, then skip
         items = items[items['original_title'].str.strip() != '']
         items.columns = [self.IID_COL, 'title']
-        items = self._stringify(items)
         return items
 
     @staticmethod

@@ -47,10 +47,16 @@ class BaseModel:
         self.model = get_peft_model(self.model, peft_config)
 
     def save(self, path):
-        torch.save(self.model.state_dict(), path)
+        # torch.save(self.model.state_dict(), path)
+        # only save lora parameters
+        state_dict = dict()
+        for k, v in self.model.state_dict().items():
+            if 'lora' in k:
+                state_dict[k] = v
+        torch.save(state_dict, path)
 
     def load(self, path):
-        self.model.load_state_dict(torch.load(path))
+        self.model.load_state_dict(torch.load(path), strict=False)
 
     @classmethod
     def get_name(cls):

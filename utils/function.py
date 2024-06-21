@@ -56,10 +56,10 @@ def argparse():
     return kwargs
 
 
-def load_processor(dataset, use_cache=True, data_dir=None):
+def load_processor(dataset, data_dir=None):
     processors = ClassHub.processors()
     if dataset not in processors:
         raise ValueError(f'Unknown dataset: {dataset}')
     processor = processors[dataset]
     pnt(f'loading {processor.get_name()} processor')
-    return processor(cache=use_cache, data_dir=data_dir)
+    return processor(data_dir=data_dir)

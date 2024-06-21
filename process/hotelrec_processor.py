@@ -63,7 +63,6 @@ class HotelRecProcessor(UICTProcessor):
                     item_set.add(hotel_id)
 
         items = pd.DataFrame(items, columns=[self.IID_COL, 'hotel_name', 'hotel_location'])
-        items[self.IID_COL] = items[self.IID_COL].astype(str)
         return items
 
     def load_users(self) -> pd.DataFrame:

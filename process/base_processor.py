@@ -1,10 +1,35 @@
 import abc
+import json
 import os.path
 import random
 from typing import Union, Callable, Optional
 
 import pandas as pd
+from oba import Obj
 from pigmento import pnt
+
+
+class Meta:
+    VER = 'v1.0'
+
+    def __init__(self, path):
+        self.path = path
+
+        if not os.path.exists(path):
+            self.compressed = False
+            self.version = self.VER
+        else:
+            data = json.load(open(path, 'r'))
+            data = Obj(data)
+            self.compressed = data.compressed
+            self.version = data.version
+
+    def save(self):
+        data = {
+            'compressed': self.compressed,
+            'version': self.version,
+        }
+        json.dump(data, open(self.path, 'w'))
 
 
 class BaseProcessor(abc.ABC):
@@ -16,15 +41,16 @@ class BaseProcessor(abc.ABC):
     NUM_TEST: int
     NUM_FINETUNE: int
 
+    MAX_HISTORY_PER_USER: int = 100
     MAX_INTERACTIONS_PER_USER: int = 20
     REQUIRE_STRINGIFY: bool
 
-    def __init__(self, data_dir=None, cache=True):
+    def __init__(self, data_dir=None):
         self.data_dir = data_dir
         self.store_dir = os.path.join('data', self.get_name())
         os.makedirs(self.store_dir, exist_ok=True)
 
-        self.cache: bool = cache
+        self.meta = Meta(os.path.join(self.store_dir, 'meta.json'))
 
         self._loaded: bool = False
 
@@ -64,6 +90,28 @@ class BaseProcessor(abc.ABC):
             df[self.UID_COL] = df[self.UID_COL].astype(str)
         return df
 
+    def compress(self):
+        if self.meta.compressed:
+            return False
+
+        user_set = set(self.interactions[self.UID_COL].unique())
+        old_user_size = len(self.users)
+        self.users = self.users[self.users[self.UID_COL].isin(user_set)]
+        pnt(f'compressed users from {old_user_size} to {len(self.users)}')
+
+        item_set = set(self.interactions[self.IID_COL].unique())
+        old_item_size = len(self.items)
+        self.users[self.HIS_COL].apply(lambda x: [item_set.add(i) for i in x])
+        self.items = self.items[self.items[self.IID_COL].isin(item_set)]
+        pnt(f'compressed items from {old_item_size} to {len(self.items)}')
+
+        self.items.to_parquet(os.path.join(self.store_dir, 'items.parquet'))
+        self.users.to_parquet(os.path.join(self.store_dir, 'users.parquet'))
+
+        self.meta.compressed = True
+        self.meta.save()
+        return True
+
     def load(self):
         if os.path.exists(os.path.join(self.store_dir, 'items.parquet')) and \
                 os.path.exists(os.path.join(self.store_dir, 'users.parquet')) and \
@@ -75,23 +123,25 @@ class BaseProcessor(abc.ABC):
             pnt(f'loaded {len(self.users)} users')
             self.interactions = pd.read_parquet(os.path.join(self.store_dir, 'interactions.parquet'))
             pnt(f'loaded {len(self.interactions)} interactions')
+
+            self.items = self._stringify(self.items)
+            self.users = self._stringify(self.users)
+            self.interactions = self._stringify(self.interactions)
         else:
             pnt(f'loading {self.get_name()} from raw data')
             self.items = self.load_items()
+            self.items = self._stringify(self.items)
             pnt(f'loaded {len(self.items)} items')
             self.users = self.load_users()
+            self.users = self._stringify(self.users)
             pnt(f'loaded {len(self.users)} users')
             self.interactions = self.load_interactions()
+            self.interactions = self._stringify(self.interactions)
             pnt(f'loaded {len(self.interactions)} interactions')
 
-            if self.cache:
-                self.items.to_parquet(os.path.join(self.store_dir, 'items.parquet'))
-                self.users.to_parquet(os.path.join(self.store_dir, 'users.parquet'))
-                self.interactions.to_parquet(os.path.join(self.store_dir, 'interactions.parquet'))
-
-        self.items = self._stringify(self.items)
-        self.users = self._stringify(self.users)
-        self.interactions = self._stringify(self.interactions)
+            self.items.to_parquet(os.path.join(self.store_dir, 'items.parquet'))
+            self.users.to_parquet(os.path.join(self.store_dir, 'users.parquet'))
+            self.interactions.to_parquet(os.path.join(self.store_dir, 'interactions.parquet'))
 
         if self.REQUIRE_STRINGIFY:
             self.users[self.HIS_COL] = self.users[self.HIS_COL].apply(
@@ -101,8 +151,11 @@ class BaseProcessor(abc.ABC):
         self.item_vocab = dict(zip(self.items[self.IID_COL], range(len(self.items))))
         self.user_vocab = dict(zip(self.users[self.UID_COL], range(len(self.users))))
 
-        self.load_public_sets()
+        if self.compress():
+            pnt(f'compressed {self.get_name()} data, re-run to load compressed data')
+            return self.load()
 
+        self.load_public_sets()
         return self
 
     def organize_item(self, iid, item_attrs: list, as_dict=False):

@@ -35,7 +35,6 @@ class HMProcessor(NSProcessor, USPEProcessor):
         )
 
         article = article[[self.IID_COL, "detail_desc"]]
-        article[self.IID_COL] = article[self.IID_COL].astype(str)
         return article
 
     def load_users(self) -> pd.DataFrame:

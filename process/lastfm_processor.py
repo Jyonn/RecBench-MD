@@ -21,7 +21,7 @@ class LastFMProcessor(USPEProcessor, NSProcessor):
 
     REQUIRE_STRINGIFY = False
 
-    MAX_INTERACTIONS_PER_USER = 100
+    MAX_INTERACTIONS_PER_USER = 200
 
     @property
     def default_attrs(self):

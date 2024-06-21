@@ -110,32 +110,44 @@ class Preparer:
 
         return train_datalist, valid_datalist
 
-    def load_or_generate(self):
+    def _pack_datalist(self, datalist):
+        dataset = Dataset(datalist)
+        return DataLoader(dataset, batch_size=self.conf.batch_size, shuffle=True)
+
+    def load_or_generate(self, mode='train'):
+        assert mode in ['train', 'valid'], f'unknown mode: {mode}'
+
         if self.has_generated:
-            pnt(f'loading prepared finetuning data on {self.processor.get_name()} dataset')
-            train_datalist = pd.read_parquet(self.train_datapath)
-            valid_datalist = pd.read_parquet(self.valid_datapath)
+            pnt(f'loading prepared {mode} data on {self.processor.get_name()} dataset')
 
             self.iid_vocab.load(self.store_dir)
             self.uid_vocab.load(self.store_dir)
-        else:
-            datalist = self.load_datalist()
-            train_datalist, valid_datalist = self.split_datalist(datalist)
 
-            train_datalist = pd.DataFrame(train_datalist)
-            valid_datalist = pd.DataFrame(valid_datalist)
+            if mode == 'train':
+                return pd.read_parquet(self.train_datapath)
+            return self._pack_datalist(pd.read_parquet(self.valid_datapath))
 
-            self.iid_vocab.save(self.store_dir)
-            self.uid_vocab.save(self.store_dir)
+        datalist = self.load_datalist()
+        train_datalist, valid_datalist = self.split_datalist(datalist)
 
-            train_datalist.to_parquet(self.train_datapath)
-            valid_datalist.to_parquet(self.valid_datapath)
+        train_datalist = pd.DataFrame(train_datalist)
+        valid_datalist = pd.DataFrame(valid_datalist)
 
-        # train_dataset = Dataset(train_datalist)
-        valid_dataset = Dataset(valid_datalist)
-        #
-        # train_dataloader = DataLoader(train_dataset, batch_size=self.conf.batch_size, shuffle=True)
-        valid_dataloader = DataLoader(valid_dataset, batch_size=self.conf.batch_size, shuffle=False)
-        #
-        # return train_dataloader, valid_dataloader
-        return train_datalist, valid_dataloader
+        self.iid_vocab.save(self.store_dir)
+        self.uid_vocab.save(self.store_dir)
+
+        train_datalist.to_parquet(self.train_datapath)
+        valid_datalist.to_parquet(self.valid_datapath)
+
+        if mode == 'train':
+            return train_datalist
+        return self._pack_datalist(valid_datalist)
+
+        # # train_dataset = Dataset(train_datalist)
+        # valid_dataset = Dataset(valid_datalist)
+        # #
+        # # train_dataloader = DataLoader(train_dataset, batch_size=self.conf.batch_size, shuffle=True)
+        # valid_dataloader = DataLoader(valid_dataset, batch_size=self.conf.batch_size, shuffle=False)
+        # #
+        # # return train_dataloader, valid_dataloader
+        # return train_datalist, valid_dataloader

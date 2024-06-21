@@ -12,13 +12,13 @@ pigmento.add_time_prefix()
 if __name__ == '__main__':
     configuration = ConfigInit(
         required_args=['data'],
-        default_args=dict(slicer=-20, use_cache=True),
+        default_args=dict(slicer=-20),
         makedirs=[]
     ).parse()
 
     data = configuration.data.lower()
     data_dir = get_data_dir(data)
-    processor = load_processor(data, use_cache=configuration.use_cache, data_dir=data_dir)
+    processor = load_processor(data, data_dir=data_dir)
     processor.load()
 
     # interactions.filter(lambda x: x[self.CLK_COL].nunique() == 2)

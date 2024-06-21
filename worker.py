@@ -106,6 +106,8 @@ class Worker:
 
             if self.use_service:
                 response = response.replace('\n', '').replace('\r', '')
+            else:
+                response = f'{response:.4f}'
             pnt(f'click: {click}, response: {response}', current=index + 1, count=len(self.processor.test_set))
             self.exporter.write(response)
             self.exporter.save_progress(index + 1)
@@ -176,7 +178,7 @@ class Worker:
             th_user_embed = torch.tensor(user_embed)
 
             score = float(torch.cosine_similarity(th_item_embed, th_user_embed, dim=0))
-            pnt(f'click: {click}, score: {score}', current=index + 1, count=len(self.processor.test_set))
+            pnt(f'click: {click}, score: {score:.4f}', current=index + 1, count=len(self.processor.test_set))
             self.exporter.write(score)
             self.exporter.save_progress(index + 1)
         TqdmPrinter.deactivate()
@@ -188,7 +190,7 @@ class Worker:
         labels = source_set[self.processor.LBL_COL].values
         groups = source_set[self.processor.UID_COL].values
 
-        pool = MetricPool.parse(self.conf.metrics.split('|'))
+        pool = MetricPool.parse(self.conf.metrics.split('+'))
         results = pool.calculate(scores, labels, groups)
         for metric, value in results.items():
             pnt(f'{metric}: {value:.4f}')
@@ -249,7 +251,7 @@ if __name__ == '__main__':
             slicer=-20,
             gpu=None,
             source='test',
-            metrics='|'.join(['GAUC', 'NDCG@1', 'NDCG@5', 'MRR', 'F1', 'Recall@1', 'Recall@5']),
+            metrics='+'.join(['GAUC', 'NDCG@1', 'NDCG@5', 'MRR', 'F1', 'Recall@1', 'Recall@5']),
             type='prompt',
         ),
         makedirs=[]

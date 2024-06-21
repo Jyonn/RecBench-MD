@@ -29,6 +29,6 @@ class USPEProcessor(BaseProcessor, abc.ABC):
                 })
         self._pos_inters = pd.DataFrame(pos_inters)
 
-        users.loc[:, self.HIS_COL] = users[self.HIS_COL].apply(lambda x: x[-100-self.POS_COUNT:-self.POS_COUNT])
+        users.loc[:, self.HIS_COL] = users[self.HIS_COL].apply(lambda x: x[-self.MAX_HISTORY_PER_USER - self.POS_COUNT: -self.POS_COUNT])
 
         return users

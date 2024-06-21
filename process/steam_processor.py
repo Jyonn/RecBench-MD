@@ -30,7 +30,7 @@ class SteamProcessor(NSProcessor, USPEProcessor):
 
         apps.columns = [self.IID_COL, 'title']
         apps['title'] = apps['title'].apply(lambda x: x.encode('latin1').decode('utf-8', 'ignore'))
-        return self._stringify(apps)
+        return apps
 
     def load_users(self) -> pd.DataFrame:
         item_set = set(self.items[self.IID_COL].unique())

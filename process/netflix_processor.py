@@ -32,7 +32,6 @@ class NetflixProcessor(UICTProcessor):
             encoding="ISO-8859-1",
             on_bad_lines='skip',
         )
-        movies[self.IID_COL] = movies[self.IID_COL].astype(str)
         return movies
 
     def load_users(self) -> pd.DataFrame:

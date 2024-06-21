@@ -185,9 +185,10 @@ class MetricPool:
     def __call__(self, *args, **kwargs):
         return self.calculate(*args, **kwargs)
 
-    def is_minimize(self, metric: str):
+    @classmethod
+    def is_minimize(cls, metric: str):
         if isinstance(metric, Metric):
             return metric.minimize
         assert isinstance(metric, str)
         metric = metric.split('@')[0]
-        return self.metric_dict[metric].minimize
+        return cls.metric_dict[metric].minimize
