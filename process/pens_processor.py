@@ -13,7 +13,7 @@ class PENSProcessor(BaseProcessor):
     LBL_COL = 'click'
 
     NUM_TEST = 0
-    NUM_FINETUNE = 100000
+    NUM_FINETUNE = 100_000
 
     REQUIRE_STRINGIFY = False
 

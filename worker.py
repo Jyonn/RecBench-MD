@@ -71,7 +71,7 @@ class Worker:
             if service.get_name() == self.model:
                 pnt(f'loading {service.get_name()} service')
                 return service
-        raise ValueError(f'Unknown model/service: {self.model}')
+        raise ValueError(f'unknown model/service: {self.model}')
 
     def test_prompt(self):
         input_template = """User behavior sequence: \n{0}\nCandidate item: {1}"""
@@ -218,11 +218,11 @@ class Worker:
                 rule_counts[1] += 1
                 continue
             # Rule 3: manually detect
-            pnt(f'Please manually convert: {label}')
+            pnt(f'please manually convert: {label}')
             scores.append(int(input('Score (0/1): ')))
             rule_counts[2] += 1
 
-        pnt(f'Rule 1: {rule_counts[0]}, Rule 2: {rule_counts[1]}, Rule 3: {rule_counts[2]}')
+        pnt(f'rule 1: {rule_counts[0]}, rule 2: {rule_counts[1]}, rule 3: {rule_counts[2]}')
         self.exporter.save_convert(scores)
 
     def run(self):

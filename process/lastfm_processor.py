@@ -14,14 +14,14 @@ class LastFMProcessor(USPEProcessor, NSProcessor):
     DAT_COL = 'time'
 
     POS_COUNT = 10
-    NEG_RATIO = 50
+    NEG_RATIO = 100
 
     NUM_TEST = 0
-    NUM_FINETUNE = 100000
+    NUM_FINETUNE = 100_000
 
     REQUIRE_STRINGIFY = False
 
-    MAX_INTERACTIONS_PER_USER = 50
+    MAX_INTERACTIONS_PER_USER = 100
 
     @property
     def default_attrs(self):

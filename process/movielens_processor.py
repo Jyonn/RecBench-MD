@@ -9,11 +9,12 @@ class MovieLensProcessor(UICTProcessor):
     HIS_COL = 'his'
     LBL_COL = 'click'
     DAT_COL = 'timestamp'
+    RAT_COL = 'rating'
 
     POS_COUNT = 2
 
-    NUM_TEST = 20000
-    NUM_FINETUNE = 100000
+    NUM_TEST = 20_000
+    NUM_FINETUNE = 0
 
     REQUIRE_STRINGIFY = False
 
@@ -40,8 +41,8 @@ class MovieLensProcessor(UICTProcessor):
         )
 
         # filter out rating = 3
-        interactions = interactions[interactions['rating'] != 3]
-        interactions[self.LBL_COL] = interactions['rating'] > 3
-        interactions.drop(columns=['rating'], inplace=True)
+        interactions = interactions[interactions[self.RAT_COL] != 3]
+        interactions[self.LBL_COL] = interactions[self.RAT_COL] > 3
+        interactions.drop(columns=[self.RAT_COL], inplace=True)
 
         return self._load_users(interactions)

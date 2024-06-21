@@ -14,6 +14,7 @@ class AmazonProcessor(UICTProcessor):
     HIS_COL = 'history'
     LBL_COL = 'click'
     DAT_COL = 'reviewTime'
+    RAT_COL = 'overall'
 
     POS_COUNT = 2
 
@@ -60,14 +61,14 @@ class AmazonProcessor(UICTProcessor):
         path = os.path.join(self.data_dir, f"{self.subset}.json.gz")
         interactions = self._load_data(path)
 
-        interactions = interactions[[self.UID_COL, self.IID_COL, 'overall', self.DAT_COL]]
+        interactions = interactions[[self.UID_COL, self.IID_COL, self.RAT_COL, self.DAT_COL]]
 
         interactions[self.DAT_COL] = pd.to_datetime(interactions[self.DAT_COL], format='%m %d, %Y')
         interactions = interactions[interactions[self.IID_COL].isin(item_set)]
 
-        interactions['overall'] = interactions['overall'].astype(int)
-        interactions = interactions[interactions['overall'] != 3]
-        interactions[self.LBL_COL] = interactions['overall'].apply(lambda x: int(x >= 4))
+        interactions[self.RAT_COL] = interactions[self.RAT_COL].astype(int)
+        interactions = interactions[interactions[self.RAT_COL] != 3]
+        interactions[self.LBL_COL] = interactions[self.RAT_COL].apply(lambda x: int(x >= 4))
 
-        interactions = interactions.drop(columns=['overall'])
+        interactions = interactions.drop(columns=[self.RAT_COL])
         return self._load_users(interactions)

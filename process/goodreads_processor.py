@@ -15,8 +15,8 @@ class GoodreadsProcessor(UICTProcessor):
     LBL_COL = 'click'
     DAT_COL = 'date'
 
-    NUM_TEST = 20000
-    NUM_FINETUNE = 100000
+    NUM_TEST = 20_000
+    NUM_FINETUNE = 100_000
 
     REQUIRE_STRINGIFY = True
 
@@ -56,9 +56,9 @@ class GoodreadsProcessor(UICTProcessor):
                 user_id, book_id, is_read, date = data['user_id'], data['book_id'], data['is_read'], data['date_added']
                 interactions.append([user_id, book_id, is_read, date])
 
-        interactions = pd.DataFrame(interactions, columns=[self.UID_COL, self.IID_COL, self.CLK_COL, self.DAT_COL])
+        interactions = pd.DataFrame(interactions, columns=[self.UID_COL, self.IID_COL, self.LBL_COL, self.DAT_COL])
         interactions = self._stringify(interactions)
         interactions[self.DAT_COL] = interactions[self.DAT_COL].apply(lambda x: self._str_to_ts(x))
-        interactions[self.LBL_COL] = interactions[self.LBL_COL].apply(lambda x: int(x))
+        interactions[self.LBL_COL] = interactions[self.LBL_COL].apply(int)
         interactions = interactions[interactions[self.IID_COL].isin(item_set)]
         return self._load_users(interactions)

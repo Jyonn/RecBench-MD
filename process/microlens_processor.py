@@ -14,8 +14,8 @@ class MicroLensProcessor(NSProcessor, USPEProcessor):
     POS_COUNT = 2
     NEG_RATIO = 2
 
-    NUM_TEST = 20000
-    NUM_FINETUNE = 100000
+    NUM_TEST = 20_000
+    NUM_FINETUNE = 100_000
 
     REQUIRE_STRINGIFY = True
 

@@ -12,8 +12,8 @@ class MINDProcessor(BaseProcessor):
     HIS_COL = 'history'
     LBL_COL = 'click'
 
-    NUM_TEST = 20000
-    NUM_FINETUNE = 100000
+    NUM_TEST = 20_000
+    NUM_FINETUNE = 100_000
 
     REQUIRE_STRINGIFY = False
 
