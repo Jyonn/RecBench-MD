@@ -1,6 +1,8 @@
 import pandas as pd
 import torch
+from pigmento import pnt
 from torch.utils.data import Dataset as BaseDataset
+from tqdm import tqdm
 
 from loader.map import Map
 
@@ -12,9 +14,17 @@ class Dataset(BaseDataset):
     def __len__(self):
         return len(self.datalist)
 
-    def align(self):
-        max_len = self.datalist[Map.LEN_COl].max()
-        self.datalist[Map.IPT_COl] = self.datalist[Map.IPT_COl].apply(lambda x: x + [0] * (max_len - len(x)))
+    def align(self, batch_size):
+        self.datalist = self.datalist.sort_values(Map.LEN_COl, ascending=False).reset_index(drop=True)
+
+        pnt(f'combining dataset by step-wise length alignment')
+        num_batches = (len(self.datalist) + batch_size - 1) // batch_size
+        for i in tqdm(range(num_batches), total=num_batches):
+            start_index = i * batch_size
+            end_index = min(start_index + batch_size, len(self.datalist))
+            batch = self.datalist.iloc[start_index:end_index]
+            max_len = batch[Map.LEN_COl].max()
+            self.datalist.loc[start_index:end_index - 1, Map.IPT_COl] = batch[Map.IPT_COl].apply(lambda x: list(x)[:max_len] + [0] * (max_len - len(x)))
 
     def __getitem__(self, idx):
         # return self.datalist[idx]

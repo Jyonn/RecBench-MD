@@ -106,10 +106,10 @@ class Tuner:
             train_dfs.append(Preparer(processor, self.caller, self.conf).load_or_generate(mode='train'))
         for processor in self.valid_processors:
             valid_dls.append(Preparer(processor, self.caller, self.conf).load_or_generate(mode='valid'))
-        # concat all the dataframes
         train_dfs = pd.concat(train_dfs)
         train_ds = Dataset(train_dfs)
-        train_dl = DataLoader(train_ds, batch_size=self.conf.batch_size, shuffle=True)
+        train_ds.align(batch_size=self.conf.batch_size)
+        train_dl = DataLoader(train_ds, batch_size=self.conf.batch_size, shuffle=False)
 
         total_train_steps = (len(train_ds) + self.conf.batch_size - 1) // self.conf.batch_size
         total_valid_steps = self._get_steps(valid_dls)
