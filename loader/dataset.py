@@ -12,6 +12,10 @@ class Dataset(BaseDataset):
     def __len__(self):
         return len(self.datalist)
 
+    def align(self):
+        max_len = self.datalist[Map.LEN_COl].max()
+        self.datalist[Map.IPT_COl] = self.datalist[Map.IPT_COl].apply(lambda x: x + [0] * (max_len - len(x)))
+
     def __getitem__(self, idx):
         # return self.datalist[idx]
         values = self.datalist.iloc[idx]
