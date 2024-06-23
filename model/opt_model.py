@@ -21,8 +21,6 @@ class OPTModel(BaseModel, abc.ABC):
         self.yes_token = self.tokenizer.convert_tokens_to_ids('YES')
         self.no_token = self.tokenizer.convert_tokens_to_ids('NO')
 
-        self.model.to(self.device)
-
 
 class OPT1BModel(OPTModel):
     pass

@@ -40,8 +40,6 @@ class P5Model(BaseModel, abc.ABC):
 
         self.load_state_dict()
 
-        self.model.to(self.device)
-
         self.yes_token = self.tokenizer.convert_tokens_to_ids('YES')
         self.no_token = self.tokenizer.convert_tokens_to_ids('NO')
 

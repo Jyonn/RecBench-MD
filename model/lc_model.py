@@ -25,8 +25,6 @@ class LongContextModel(BaseModel, abc.ABC):
         self.yes_token = self.tokenizer.convert_tokens_to_ids(self.tokenizer.tokenize('YES'))[0]
         self.no_token = self.tokenizer.convert_tokens_to_ids(self.tokenizer.tokenize('NO'))[0]
 
-        self.model.to(self.device)
-
     def _generate_input_ids(self, content):
         return self.tokenizer.encode(content, return_tensors='pt', add_special_tokens=False)
 

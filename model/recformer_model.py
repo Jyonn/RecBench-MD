@@ -33,8 +33,6 @@ class RecformerModel(BaseModel, abc.ABC):
         self.model = Recformer(config)
         self.load_state_dict()
 
-        self.model.to(self.device)
-
     def ask(self, content) -> Optional[float]:
         raise NotImplementedError("Recformer does not support ask method")
 

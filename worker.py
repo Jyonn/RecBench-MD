@@ -66,7 +66,7 @@ class Worker:
         if self.model in self.models:
             model = self.models[self.model]
             pnt(f'loading {model.get_name()} model')
-            return model(device=self.get_device())
+            return model(device=self.get_device()).post_init()
         for service in self.services:
             if service.get_name() == self.model:
                 pnt(f'loading {service.get_name()} service')

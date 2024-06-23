@@ -77,18 +77,18 @@ class Preparer:
 
                 input_ids = prefix + user
                 for i in range(idx + 1, len(history)):
-                    input_ids += numbers[len(history) - i] + items[history[i]] + line
+                    input_ids += numbers[i - idx] + items[history[i]] + line
                 input_ids += item + current_item + suffix
                 break
 
             assert input_ids is not None, f'failed to get input_ids for {index} ({uid}, {iid})'
             max_sequence_len = max(max_sequence_len, len(input_ids))
-            datalist.append({Map.IPT_COl: input_ids, Map.LBL_COl: label, Map.UID_COL: uid, Map.IID_COL: iid})
+            datalist.append({Map.IPT_COL: input_ids, Map.LBL_COL: label, Map.UID_COL: uid, Map.IID_COL: iid})
         TqdmPrinter.deactivate()
 
         for data in datalist:
-            data[Map.LEN_COl] = len(data[Map.IPT_COl])
-            data[Map.IPT_COl] = data[Map.IPT_COl] + [0] * (max_sequence_len - data[Map.LEN_COl])
+            data[Map.LEN_COL] = len(data[Map.IPT_COL])
+            data[Map.IPT_COL] = data[Map.IPT_COL] + [0] * (max_sequence_len - data[Map.LEN_COL])
             data[Map.UID_COL] = self.uid_vocab.append(data[Map.UID_COL])
             data[Map.IID_COL] = self.iid_vocab.append(data[Map.IID_COL])
 
@@ -142,12 +142,3 @@ class Preparer:
         if mode == 'train':
             return train_datalist
         return self._pack_datalist(valid_datalist)
-
-        # # train_dataset = Dataset(train_datalist)
-        # valid_dataset = Dataset(valid_datalist)
-        # #
-        # # train_dataloader = DataLoader(train_dataset, batch_size=self.conf.batch_size, shuffle=True)
-        # valid_dataloader = DataLoader(valid_dataset, batch_size=self.conf.batch_size, shuffle=False)
-        # #
-        # # return train_dataloader, valid_dataloader
-        # return train_datalist, valid_dataloader

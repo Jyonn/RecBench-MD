@@ -1,5 +1,5 @@
 bert = base:bert-base-uncased, large:bert-large-uncased
-llama = 1:/home/data1/qijiong/llama-7b, 2:/path/to/2
+llama = 1:huggyllama/llama-7b, 2:meta-llama/Llama-2-7b-hf, 3:meta-llama/Meta-Llama-3-8B
 opt = 1b:facebook/opt-1.3b, 350m:facebook/opt-350m
 qwen = 2th7b:Qwen/Qwen2-7B-Instruct
 glm = 4th9b:THUDM/glm-4-9b-chat

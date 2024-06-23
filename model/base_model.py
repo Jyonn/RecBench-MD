@@ -15,6 +15,9 @@ class BaseModel:
 
     def __init__(self, device):
         self.device = device
+        self.device_ids = None
+        if isinstance(device, tuple):
+            self.device, self.device_ids = device
 
         self.key = model.match(self.get_name())
 
@@ -27,6 +30,12 @@ class BaseModel:
 
         self.loss_fct = torch.nn.CrossEntropyLoss()
         self.softmax = torch.nn.Softmax(dim=0)
+
+    def post_init(self):
+        self.model.to(self.device)
+        if self.device_ids is not None:
+            self.model = torch.nn.DataParallel(self.model, device_ids=self.device_ids)
+        return self
 
     @property
     def label_tokens(self):
@@ -72,19 +81,20 @@ class BaseModel:
         return self.tokenizer.encode(content or '', add_special_tokens=False)
 
     def _get_logits(self, batch):
-        logits = self.model(batch[Map.IPT_COl].to(self.device)).logits  # [B, L, V]
-        indices = (batch[Map.LEN_COl] - 1).view(-1, 1, 1).expand(-1, 1, logits.size(-1)).to(self.device)
+        logits = self.model(batch[Map.IPT_COL].to(self.device)).logits  # [B, L, V]
+        indices = (batch[Map.LEN_COL] - 1).view(-1, 1, 1).expand(-1, 1, logits.size(-1)).to(self.device)
         return torch.gather(logits, 1, indices).squeeze(1)  # [B, V]
 
     def finetune(self, batch):
         logits = self._get_logits(batch)
+        torch.save(logits, 'logits.pth')
 
-        labels = self.label_tokens[batch[Map.LBL_COl]].to(self.device)
+        labels = self.label_tokens[batch[Map.LBL_COL]].to(self.device)
         return self.loss_fct(logits, labels)
 
     def evaluate(self, batch):
         logits = self._get_logits(batch)
-        labels = self.label_tokens[batch[Map.LBL_COl]].to(self.device)
+        labels = self.label_tokens[batch[Map.LBL_COL]].to(self.device)
         logits = logits[:, labels]  # [B, 2]
         return self.softmax(logits)[0].detach().cpu().tolist()
 

@@ -26,7 +26,8 @@ class BertModel(BaseModel, abc.ABC):
         self.no_token = self.tokenizer.convert_tokens_to_ids('no')
 
         # load to device
-        self.model.to(self.device)
+        # self.model.to(self.device)
+        # self.post_init()
 
     def generate_input_ids(self, content, wrap_ask=True) -> torch.Tensor:
         # concat system and content, and append [MASK] token for prediction

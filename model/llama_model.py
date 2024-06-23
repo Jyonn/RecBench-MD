@@ -1,9 +1,11 @@
 import abc
 
-from transformers import LlamaForCausalLM, LlamaTokenizer
+import torch
+from transformers import LlamaForCausalLM, AutoTokenizer, AutoModelForCausalLM
 
 from config import SIMPLE_SUFFIX, SIMPLE_SYSTEM
 from model.base_model import BaseModel
+from utils.auth import HF_KEY
 
 
 class LlamaModel(BaseModel, abc.ABC):
@@ -13,17 +15,26 @@ class LlamaModel(BaseModel, abc.ABC):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self.model = LlamaForCausalLM.from_pretrained(
+        params = dict()
+        if not self.key.startswith('/'):
+            params = dict(
+                trust_remote_code=True,
+                token=HF_KEY,
+            )
+
+        self.model = AutoModelForCausalLM.from_pretrained(
             self.key,
-            # device_map=
+            torch_dtype=torch.bfloat16,
+            **params,
         )  # type: LlamaForCausalLM
-        self.tokenizer = LlamaTokenizer.from_pretrained(self.key)
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            self.key,
+            **params,
+        )
         self.max_len = self.model.config.max_position_embeddings
 
         self.yes_token = self.tokenizer.convert_tokens_to_ids('YES')
         self.no_token = self.tokenizer.convert_tokens_to_ids('NO')
-
-        self.model.to(self.device)
 
 
 class Llama1Model(LlamaModel):
@@ -31,4 +42,8 @@ class Llama1Model(LlamaModel):
 
 
 class Llama2Model(LlamaModel):
+    pass
+
+
+class Llama3Model(LlamaModel):
     pass

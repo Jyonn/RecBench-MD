@@ -8,15 +8,12 @@ import torch
 from pigmento import pnt
 from torch.utils.data import DataLoader
 
+from loader.class_hub import ClassHub
 from loader.dataset import Dataset
 from loader.map import Map
 from loader.preparer import Preparer
 from model.base_model import BaseModel
-from model.bert_model import BertBaseModel, BertLargeModel
-from model.lc_model import QWen2TH7BModel, GLM4TH9BModel, Mistral7BModel, Phi3TH7BModel
-from model.llama_model import Llama1Model, Llama2Model
-from model.opt_model import OPT1BModel, OPT350MModel
-from model.p5_model import P5BeautyModel
+from process.base_processor import BaseProcessor
 from utils.config_init import ConfigInit
 from utils.export import Exporter
 from utils.function import load_processor
@@ -28,13 +25,7 @@ from utils.tqdm_printer import TqdmPrinter
 
 class Tuner:
     def __init__(self, conf):
-        self.models = [
-            BertBaseModel, BertLargeModel,
-            Llama1Model, Llama2Model,
-            OPT1BModel, OPT350MModel,
-            QWen2TH7BModel, GLM4TH9BModel, Mistral7BModel, Phi3TH7BModel,
-            P5BeautyModel
-        ]
+        self.models = ClassHub.models()
 
         self.conf = conf
         self.model = conf.model.replace('.', '').lower()
@@ -43,12 +34,13 @@ class Tuner:
 
         self.processors = dict()
         for data in set(self.train_data + self.valid_data):
-            self.processors[data] = load_processor(data).load()
-        self.train_processors = [self.processors[data] for data in self.train_data]
-        self.valid_processors = [self.processors[data] for data in self.valid_data]
+            self.processors[data] = load_processor(data)  # type: BaseProcessor
+        self.train_processors = [self.processors[data] for data in self.train_data]  # type: list[BaseProcessor]
+        self.valid_processors = [self.processors[data] for data in self.valid_data]  # type: list[BaseProcessor]
 
         self.caller = self.load_model()  # type: BaseModel
         self.caller.prepare_model_finetuning(self.conf)
+        self.caller.post_init()
 
         self.log_dir = os.path.join('tuning', self.model)
 
@@ -77,14 +69,18 @@ class Tuner:
         if self.conf.gpu == -1:
             pnt('manually choosing CPU device')
             return 'cpu'
+
         pnt(f'manually choosing {self.conf.gpu}-th GPU')
-        return f'cuda:{self.conf.gpu}'
+        if isinstance(self.conf.gpu, int):
+            return f'cuda:{self.conf.gpu}'
+        gpus = list(map(int, self.conf.gpu.split('+')))
+        return f'cuda:{gpus[0]}', gpus
 
     def load_model(self):
-        for model in self.models:
-            if model.get_name() == self.model:
-                pnt(f'loading {model.get_name()} model')
-                return model(device=self.get_device())
+        if self.model in self.models:
+            model = self.models[self.model]
+            pnt(f'loading {model.get_name()} model')
+            return model(device=self.get_device())
         raise ValueError(f'unknown model: {self.model}')
 
     @staticmethod
@@ -102,10 +98,19 @@ class Tuner:
 
     def finetune(self):
         train_dfs, valid_dls = [], []
+
         for processor in self.train_processors:
-            train_dfs.append(Preparer(processor, self.caller, self.conf).load_or_generate(mode='train'))
+            preparer = Preparer(processor, self.caller, self.conf)
+            if not preparer.has_generated:
+                processor.load()
+            train_dfs.append(preparer.load_or_generate(mode='train'))
+
         for processor in self.valid_processors:
-            valid_dls.append(Preparer(processor, self.caller, self.conf).load_or_generate(mode='valid'))
+            preparer = Preparer(processor, self.caller, self.conf)
+            if not preparer.has_generated:
+                processor.load()
+            valid_dls.append(preparer.load_or_generate(mode='valid'))
+
         train_dfs = pd.concat(train_dfs)
         train_ds = Dataset(train_dfs)
         train_ds.align(batch_size=self.conf.batch_size)
@@ -117,12 +122,19 @@ class Tuner:
         self.list_tunable_parameters()
 
         for epoch in range(100):
+            accumulate_step = 0
+
             TqdmPrinter.activate()
+            self.optimizer.zero_grad()
             for index, batch in enumerate(train_dl):
-                self.optimizer.zero_grad()
                 loss = self.caller.finetune(batch)
                 loss.backward()
-                self.optimizer.step()
+
+                accumulate_step += 1
+                if accumulate_step == self.conf.acc_batch:
+                    self.optimizer.step()
+                    self.optimizer.zero_grad()
+                    accumulate_step = 0
 
                 index += 1
                 pnt(f'(epoch {epoch}), current loss: {loss.item():.4f}', current=index, count=total_train_steps)
@@ -134,7 +146,7 @@ class Tuner:
                 score_list, label_list, group_list = [], [], []
                 for index, batch in enumerate(valid_dl):
                     scores = self.caller.evaluate(batch)
-                    labels = batch[Map.LBL_COl].tolist()
+                    labels = batch[Map.LBL_COL].tolist()
                     groups = batch[Map.UID_COL].tolist()
 
                     score_list.extend(scores)
@@ -188,7 +200,8 @@ if __name__ == '__main__':
             lora_r=32,
             lora_alpha=128,
             lora_dropout=0.1,
-            lr=0.0005,
+            lr=0.00001,
+            acc_batch=1,
         ),
         makedirs=[]
     ).parse()
