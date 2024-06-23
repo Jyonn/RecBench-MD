@@ -122,8 +122,46 @@ class Tuner:
         self.list_tunable_parameters()
 
         for epoch in range(100):
-            accumulate_step = 0
+            self.caller.model.eval()
+            with torch.no_grad():
+                metric_name, metric_values = None, []
+                for i_dl, valid_dl in enumerate(valid_dls):
+                    TqdmPrinter.activate()
+                    score_list, label_list, group_list = [], [], []
+                    for index, batch in enumerate(valid_dl):
+                        scores = self.caller.evaluate(batch)
+                        labels = batch[Map.LBL_COL].tolist()
+                        groups = batch[Map.UID_COL].tolist()
 
+                        score_list.extend(scores)
+                        label_list.extend(labels)
+                        group_list.extend(groups)
+
+                        pnt(f'(epoch {epoch}) validating {i_dl + 1}-th dataset of {len(valid_dls)}: {self.valid_processors[i_dl].get_name()}',
+                            current=index + 1, count=total_valid_steps[i_dl])
+
+                    pool = MetricPool.parse([self.conf.valid_metric])
+                    results = pool.calculate(score_list, label_list, group_list)
+                    for k in results:
+                        metric_name = k
+                        metric_values.append(results[k])
+                    pnt(f'(epoch {epoch}) validation on {self.valid_processors[i_dl].get_name()} dataset with {metric_name}: {metric_values[-1]:.4f}',
+                        current=i_dl + 1, count=len(valid_dls))
+                    TqdmPrinter.deactivate()
+
+            metric_value = np.mean(metric_values).item()
+            pnt(f'(epoch {epoch}) validation on all datasets with {metric_name}: {metric_value:.4f}')
+
+            action = self.monitor.push(metric_name, metric_value)
+            if action is self.monitor.BEST:
+                self.caller.save(os.path.join(self.log_dir, f'{self.model}-{self.sign}.pt'))
+                pnt(f'saving best model to {self.log_dir}/{self.model}-{self.sign}.pt')
+            elif action is self.monitor.STOP:
+                pnt('early stopping')
+                break
+
+            self.caller.model.train()
+            accumulate_step = 0
             TqdmPrinter.activate()
             self.optimizer.zero_grad()
             for index, batch in enumerate(train_dl):
@@ -139,40 +177,6 @@ class Tuner:
                 index += 1
                 pnt(f'(epoch {epoch}), current loss: {loss.item():.4f}', current=index, count=total_train_steps)
             TqdmPrinter.deactivate()
-
-            metric_name, metric_values = None, []
-            for i_dl, valid_dl in enumerate(valid_dls):
-                TqdmPrinter.activate()
-                score_list, label_list, group_list = [], [], []
-                for index, batch in enumerate(valid_dl):
-                    scores = self.caller.evaluate(batch)
-                    labels = batch[Map.LBL_COL].tolist()
-                    groups = batch[Map.UID_COL].tolist()
-
-                    score_list.extend(scores)
-                    label_list.extend(labels)
-                    group_list.extend(groups)
-
-                    pnt(f'(epoch {epoch}) validating {i_dl + 1}-th dataset of {len(valid_dls)}: {self.valid_processors[i_dl].get_name()}', current=index + 1, count=total_valid_steps[i_dl])
-
-                pool = MetricPool.parse([self.conf.valid_metric])
-                results = pool.calculate(score_list, label_list, group_list)
-                for k in results:
-                    metric_name = k
-                    metric_values.append(results[k])
-                pnt(f'(epoch {epoch}) validation on {self.valid_processors[i_dl].get_name()} dataset with {metric_name}: {metric_values[-1]:.4f}', current=i_dl + 1, count=len(valid_dls))
-                TqdmPrinter.deactivate()
-
-            metric_value = np.mean(metric_values).item()
-            pnt(f'(epoch {epoch}) validation on all datasets with {metric_name}: {metric_value:.4f}')
-
-            action = self.monitor.push(metric_name, metric_value)
-            if action is self.monitor.BEST:
-                self.caller.save(os.path.join(self.log_dir, f'{self.model}-{self.sign}.pt'))
-                pnt(f'saving best model to {self.log_dir}/{self.model}-{self.sign}.pt')
-            elif action is self.monitor.STOP:
-                pnt('early stopping')
-                break
 
     def run(self):
         self.finetune()

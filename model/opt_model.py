@@ -1,5 +1,6 @@
 import abc
 
+import torch
 from transformers import OPTForCausalLM, AutoTokenizer
 
 from config import CHAT_SYSTEM, SIMPLE_SUFFIX
@@ -14,7 +15,7 @@ class OPTModel(BaseModel, abc.ABC):
         super().__init__(**kwargs)
 
         # use large size opt model
-        self.model = OPTForCausalLM.from_pretrained(self.key)  # type: OPTForCausalLM
+        self.model = OPTForCausalLM.from_pretrained(self.key, torch_dtype=torch.bfloat16)  # type: OPTForCausalLM
         self.tokenizer = AutoTokenizer.from_pretrained(self.key)
         self.max_len = self.model.config.max_position_embeddings
 
