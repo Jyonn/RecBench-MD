@@ -256,6 +256,8 @@ class Worker:
 
 
 if __name__ == '__main__':
+    # os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
     pigmento.add_time_prefix()
     pnt.set_basic_printer(TqdmPrinter())
     pnt.set_display_mode(

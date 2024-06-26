@@ -186,6 +186,7 @@ class Tuner:
         if self.conf.eval_interval < 0:
             self.conf.eval_interval = total_train_steps // -self.conf.eval_interval
 
+        self.evaluate(valid_dls, -1)
         for epoch in range(100):
             self.caller.model.train()
             accumulate_step = 0

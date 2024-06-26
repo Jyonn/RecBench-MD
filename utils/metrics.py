@@ -180,7 +180,6 @@ class MetricPool:
             pool.close()
             pool.join()
             values = [t.get() for t in tasks]
-
             self.values[str(metric)] = torch.tensor(values, dtype=torch.float).mean().item()
         return self.values
 

@@ -32,6 +32,7 @@ class BaseModel:
 
         self.loss_fct = torch.nn.CrossEntropyLoss()
         self.softmax = torch.nn.Softmax(dim=0)
+        self.softmax_sft = torch.nn.Softmax()
 
     def post_init(self):
         self.model.to(self.device)
@@ -98,10 +99,9 @@ class BaseModel:
         return self.loss_fct(logits, labels)
 
     def evaluate(self, batch):
-        logits = self._get_logits(batch)
-        labels = self.label_tokens[batch[Map.LBL_COL]].to(self.device)
-        logits = logits[:, labels]  # [B, 2]
-        return self.softmax(logits)[0].detach().cpu().tolist()
+        logits = self._get_logits(batch)  # [B x V=30522]
+        scores = self.softmax_sft(logits)  # [B x V=30522]
+        return scores[:, self.yes_token].detach().cpu().tolist()
 
     def ask(self, content) -> Optional[float]:
         input_ids = self.generate_input_ids(content, wrap_ask=True)
