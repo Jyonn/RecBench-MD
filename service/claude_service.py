@@ -1,6 +1,6 @@
 import anthropic
 
-from config import CHAT_SYSTEM
+from utils.prompt import CHAT_SYSTEM
 from service.base_service import BaseService
 
 

@@ -170,11 +170,13 @@ class MetricPool:
 
             tasks = []
             pool = Pool(processes=group_worker)
+
             for g in groups:
                 group = g[1]
                 g_labels = group.labels.tolist()
                 g_scores = group.scores.tolist()
                 tasks.append(pool.apply_async(metric, args=(g_scores, g_labels)))
+
             pool.close()
             pool.join()
             values = [t.get() for t in tasks]

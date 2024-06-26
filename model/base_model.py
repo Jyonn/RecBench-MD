@@ -28,6 +28,8 @@ class BaseModel:
         self.yes_token = None
         self.no_token = None
 
+        self.use_lora = False
+
         self.loss_fct = torch.nn.CrossEntropyLoss()
         self.softmax = torch.nn.Softmax(dim=0)
 
@@ -45,6 +47,7 @@ class BaseModel:
         if not conf.use_lora:
             pnt(f'fully finetuning {self.get_name()} model without lora')
             return
+        self.use_lora = True
 
         pnt(f'finetuning {self.get_name()} model with lora ({conf.lora_r}, {conf.lora_alpha}, {conf.lora_dropout})')
         peft_config = LoraConfig(
@@ -57,14 +60,18 @@ class BaseModel:
 
     def save(self, path):
         # torch.save(self.model.state_dict(), path)
-        # only save lora parameters
-        state_dict = dict()
-        for k, v in self.model.state_dict().items():
-            if 'lora' in k:
-                state_dict[k] = v
+        if self.use_lora:
+            # only save lora parameters
+            state_dict = dict()
+            for k, v in self.model.state_dict().items():
+                if 'lora' in k:
+                    state_dict[k] = v
+        else:
+            state_dict = self.model.state_dict()
         torch.save(state_dict, path)
 
     def load(self, path):
+        pnt(f'loading finetuned model from {path}')
         self.model.load_state_dict(torch.load(path), strict=False)
 
     @classmethod
@@ -87,8 +94,6 @@ class BaseModel:
 
     def finetune(self, batch):
         logits = self._get_logits(batch)
-        torch.save(logits, 'logits.pth')
-
         labels = self.label_tokens[batch[Map.LBL_COL]].to(self.device)
         return self.loss_fct(logits, labels)
 
@@ -130,7 +135,8 @@ class BaseModel:
         with torch.no_grad():
             output = self.model(input_ids, output_hidden_states=True)
         # get embeddings of last token
-        embeddings = output.hidden_states[-1][0, -1, :]
+        embeddings = output.hidden_states[-1][0, -1, :]  # type: torch.Tensor
+        embeddings = embeddings.float()
         return embeddings.cpu().detach().numpy()
 
     def __call__(self, content):

@@ -5,7 +5,7 @@ import torch
 from transformers.models.bert import BertForMaskedLM
 from transformers.models.bert.tokenization_bert import BertTokenizer
 
-from config import SIMPLE_SYSTEM, SIMPLE_SUFFIX
+from utils.prompt import SIMPLE_SYSTEM, SIMPLE_SUFFIX
 from model.base_model import BaseModel
 
 

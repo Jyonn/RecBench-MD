@@ -1,6 +1,3 @@
-import time
-
-
 class BaseService:
     def __init__(self, auth):
         self.auth = auth

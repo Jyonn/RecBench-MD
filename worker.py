@@ -1,9 +1,11 @@
+import json
 import os
-from typing import Union, Optional, List
+from typing import Union, Optional, List, cast
 
 import numpy as np
 import pigmento
 import torch
+from oba import Obj
 from pigmento import pnt
 
 from loader.class_hub import ClassHub
@@ -44,14 +46,30 @@ class Worker:
         self.caller = self.load_model_or_service()  # type: Union[BaseService, BaseModel]
         self.use_service = isinstance(self.caller, BaseService)
 
+        if self.conf.tuner is not None:
+            assert not self.use_service, 'Tuner is not supported for service.'
+            if 'tuning' not in self.conf.tuner:
+                self.conf.tuner = os.path.join('tuning', self.model, self.conf.tuner + '.json')
+            self.sign = '@' + self.conf.tuner[:-5][-6:]
+            pnt(f'loading {self.sign} tuner')
+            self.tuner_meta = Obj(json.load(open(self.conf.tuner)))
+            required_args = ['use_lora', 'lora_r', 'lora_alpha', 'lora_dropout']
+            for arg in required_args:
+                assert arg in self.tuner_meta, f'{arg} is required in tuner configuration'
+            self.caller = cast(BaseModel, self.caller)
+            self.caller.prepare_model_finetuning(self.tuner_meta)
+            self.caller.load(self.conf.tuner.replace('.json', '.pt'))
+        else:
+            self.sign = ''
+
         self.log_dir = os.path.join('export', self.data)
         if self.use_embed:
             assert not self.use_service, 'Embedding is not supported for service.'
             self.log_dir = os.path.join('export', self.data + '_embed')
 
         os.makedirs(self.log_dir, exist_ok=True)
-        pigmento.add_log_plugin(os.path.join(self.log_dir, f'{self.model}.log'))
-        self.exporter = Exporter(os.path.join(self.log_dir, f'{self.model}.dat'))
+        pigmento.add_log_plugin(os.path.join(self.log_dir, f'{self.model}{self.sign}.log'))
+        self.exporter = Exporter(os.path.join(self.log_dir, f'{self.model}{self.sign}.dat'))
 
     def get_device(self):
         if self.conf.gpu is None:
@@ -253,6 +271,7 @@ if __name__ == '__main__':
             source='test',
             metrics='+'.join(['GAUC', 'NDCG@1', 'NDCG@5', 'MRR', 'F1', 'Recall@1', 'Recall@5']),
             type='prompt',
+            tuner=None,
         ),
         makedirs=[]
     ).parse()

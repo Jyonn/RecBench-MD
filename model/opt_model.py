@@ -3,7 +3,7 @@ import abc
 import torch
 from transformers import OPTForCausalLM, AutoTokenizer
 
-from config import CHAT_SYSTEM, SIMPLE_SUFFIX
+from utils.prompt import CHAT_SYSTEM, SIMPLE_SUFFIX
 from model.base_model import BaseModel
 
 

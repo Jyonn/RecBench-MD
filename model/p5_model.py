@@ -4,7 +4,7 @@ from typing import Optional
 import torch
 from transformers import T5Config
 
-from config import CHAT_SYSTEM, SIMPLE_SUFFIX
+from utils.prompt import CHAT_SYSTEM, SIMPLE_SUFFIX
 from model.base_model import BaseModel
 from model.p5.modeling_p5 import P5
 from model.p5.tokenization import P5Tokenizer

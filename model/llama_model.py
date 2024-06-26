@@ -3,7 +3,7 @@ import abc
 import torch
 from transformers import LlamaForCausalLM, AutoTokenizer, AutoModelForCausalLM
 
-from config import SIMPLE_SUFFIX, SIMPLE_SYSTEM
+from utils.prompt import SIMPLE_SUFFIX, SIMPLE_SYSTEM
 from model.base_model import BaseModel
 from utils.auth import HF_KEY
 
