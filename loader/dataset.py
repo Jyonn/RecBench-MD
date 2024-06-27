@@ -22,7 +22,7 @@ class Dataset(BaseDataset):
         for i in tqdm(range(num_batches), total=num_batches):
             start_index = i * batch_size
             end_index = min(start_index + batch_size, len(self.datalist))
-            batch = self.datalist.iloc[start_index:end_index]
+            batch = self.datalist.loc[start_index:end_index - 1]
             max_len = batch[Map.LEN_COL].max()
             self.datalist.loc[start_index:end_index - 1, Map.IPT_COL] = batch[Map.IPT_COL].apply(lambda x: list(x)[:max_len] + [0] * (max_len - len(x)))
 

@@ -42,4 +42,7 @@ class Mistral7BModel(LongContextModel):
 
 
 class Phi3TH7BModel(LongContextModel):
-    pass
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        self.max_len = 2e3

@@ -89,7 +89,11 @@ class BaseModel:
         return self.tokenizer.encode(content or '', add_special_tokens=False)
 
     def _get_logits(self, batch):
-        logits = self.model(batch[Map.IPT_COL].to(self.device)).logits  # [B, L, V]
+        input_ids = batch[Map.IPT_COL].to(self.device)
+        length = batch[Map.LEN_COL].to(self.device)
+        max_len = length.max().item()
+        attention_mask = torch.arange(max_len).expand(input_ids.size(0), max_len).to(self.device) < length.view(-1, 1)
+        logits = self.model(input_ids, attention_mask=attention_mask).logits  # [B, L, V]
         indices = (batch[Map.LEN_COL] - 1).view(-1, 1, 1).expand(-1, 1, logits.size(-1)).to(self.device)
         return torch.gather(logits, 1, indices).squeeze(1)  # [B, V]
 
