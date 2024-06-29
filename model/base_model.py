@@ -30,7 +30,8 @@ class BaseModel:
 
         self.use_lora = False
 
-        self.loss_fct = torch.nn.CrossEntropyLoss()
+        # self.loss_fct = torch.nn.CrossEntropyLoss()
+        self.loss_fct = torch.nn.BCELoss()
         self.softmax = torch.nn.Softmax(dim=0)
         self.softmax_sft = torch.nn.Softmax()
 
@@ -88,24 +89,25 @@ class BaseModel:
     def generate_simple_input_ids(self, content) -> list:
         return self.tokenizer.encode(content or '', add_special_tokens=False)
 
-    def _get_logits(self, batch):
+    def _get_scores(self, batch):
         input_ids = batch[Map.IPT_COL].to(self.device)
         length = batch[Map.LEN_COL].to(self.device)
-        max_len = length.max().item()
+        max_len = input_ids.size(-1)
         attention_mask = torch.arange(max_len).expand(input_ids.size(0), max_len).to(self.device) < length.view(-1, 1)
         logits = self.model(input_ids, attention_mask=attention_mask).logits  # [B, L, V]
         indices = (batch[Map.LEN_COL] - 1).view(-1, 1, 1).expand(-1, 1, logits.size(-1)).to(self.device)
-        return torch.gather(logits, 1, indices).squeeze(1)  # [B, V]
+        logits = torch.gather(logits, 1, indices).squeeze(1)  # [B, V]
+        logits = logits[:, self.label_tokens]  # [B, 2]
+        scores = self.softmax_sft(logits)  # [B, 2]
+        return scores[:, 1]
 
     def finetune(self, batch):
-        logits = self._get_logits(batch)
-        labels = self.label_tokens[batch[Map.LBL_COL]].to(self.device)
-        return self.loss_fct(logits, labels)
+        scores = self._get_scores(batch)
+        return self.loss_fct(scores, batch[Map.LBL_COL].to(self.device).float())
 
     def evaluate(self, batch):
-        logits = self._get_logits(batch)  # [B x V=30522]
-        scores = self.softmax_sft(logits)  # [B x V=30522]
-        return scores[:, self.yes_token].detach().cpu().tolist()
+        scores = self._get_scores(batch)  # [B, V=30522]
+        return scores.detach().cpu().tolist()
 
     def ask(self, content) -> Optional[float]:
         input_ids = self.generate_input_ids(content, wrap_ask=True)

@@ -41,9 +41,14 @@ class Tuner:
         self.train_processors = [self.processors[data] for data in self.train_data]  # type: list[BaseProcessor]
         self.valid_processors = [self.processors[data] for data in self.valid_data]  # type: list[BaseProcessor]
 
-        self.caller = self.load_model()  # type: BaseModel
-        self.caller.prepare_model_finetuning(self.conf)
-        self.caller.post_init()
+        if self.conf.tuner is not None:
+            self.conf.tuner = str(self.conf.tuner)
+            self.conf.tuner = os.path.join('tuning', self.model, self.conf.tuner + '.json')
+            self.tuner_meta = Obj(json.load(open(self.conf.tuner)))
+            required_args = ['use_lora', 'lora_r', 'lora_alpha', 'lora_dropout']
+            for arg in required_args:
+                assert arg in self.tuner_meta, f'{arg} is required in tuner configuration'
+                assert self.tuner_meta[arg] == self.conf[arg], f'{arg} should be consistent with previous tuner'
 
         self.log_dir = os.path.join('tuning', self.model)
         os.makedirs(self.log_dir, exist_ok=True)
@@ -56,6 +61,12 @@ class Tuner:
         self.log_path = os.path.join(self.log_dir, f'{self.sign}.log')
         pigmento.add_log_plugin(self.log_path)
 
+        self.caller = self.load_model()  # type: BaseModel
+        self.caller.prepare_model_finetuning(self.conf)
+        if self.conf.tuner:
+            self.caller.load(self.conf.tuner.replace('.json', '.pt'))
+        self.caller.post_init()
+
         json.dump(self.meta, open(self.meta_path, 'w'), indent=2)
 
         self.optimizer = torch.optim.Adam(
@@ -63,7 +74,7 @@ class Tuner:
             lr=self.conf.lr
         )
 
-        self.monitor = Monitor()
+        self.monitor = Monitor(patience=self.conf.patience)
 
     def get_meta(self):
         conf = copy.deepcopy(Obj.raw(self.conf))
@@ -75,10 +86,7 @@ class Tuner:
         return conf
 
     def get_signature(self):
-        # train_data = '+'.join(sorted(self.train_data))
-        # valid_data = '+'.join(sorted(self.valid_data))
         keys = sorted(self.meta.keys())
-        # key = f'{train_data}-{valid_data}'
         key = '-'.join([f'{k}={self.meta[k]}' for k in keys])
         md5 = hashlib.md5(key.encode()).hexdigest()
         return md5[:6]
@@ -187,6 +195,7 @@ class Tuner:
             self.conf.eval_interval = total_train_steps // -self.conf.eval_interval
 
         self.evaluate(valid_dls, -1)
+
         for epoch in range(100):
             self.caller.model.train()
             accumulate_step = 0
@@ -201,8 +210,7 @@ class Tuner:
                     self.optimizer.zero_grad()
                     accumulate_step = 0
 
-                index += 1
-                if index % self.conf.eval_interval == 0:
+                if (index + 1) % self.conf.eval_interval == 0:
                     action = self.evaluate(valid_dls, epoch)
                     if action is self.monitor.STOP:
                         pnt('early stopping')
@@ -223,15 +231,13 @@ if __name__ == '__main__':
     )
 
     configuration = ConfigInit(
-        required_args=['model'],
+        required_args=['model', 'train', 'valid'],
         default_args=dict(
             slicer=-20,
             gpu=None,
             valid_metric='GAUC',
             valid_ratio=0.1,
             batch_size=32,
-            train='mind+microlens',
-            valid='mind+microlens',
             use_lora=True,
             lora_r=32,
             lora_alpha=128,
@@ -239,6 +245,8 @@ if __name__ == '__main__':
             lr=0.00001,
             acc_batch=1,
             eval_interval=1,
+            patience=2,
+            tuner=None,
         ),
         makedirs=[]
     ).parse()

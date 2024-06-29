@@ -12,6 +12,9 @@ class Exporter:
         self.embed_path = path + '.{0}.npy'
         self.convert_path = path + '.convert'
 
+    def exist(self):
+        return os.path.exists(self.path)
+
     def write(self, data):
         with open(self.path, 'a') as f:
             f.write(f'{data}\n')
@@ -23,16 +26,16 @@ class Exporter:
         with open(path, 'r') as f:
             return [handler(line.strip()) for line in f]
 
-    def save_progress(self, index):
-        with open(self.error_path, 'w') as f:
-            f.write(str(index))
-
-    def load_progress(self):
-        if not os.path.exists(self.error_path):
-            return 0
-
-        with open(self.error_path, 'r') as f:
-            return int(f.read())
+    # def save_progress(self, index):
+    #     with open(self.error_path, 'w') as f:
+    #         f.write(str(index))
+    #
+    # def load_progress(self):
+    #     if not os.path.exists(self.error_path):
+    #         return 0
+    #
+    #     with open(self.error_path, 'r') as f:
+    #         return int(f.read())
 
     def save_metrics(self, metrics):
         # for metric, value in results.items():
@@ -44,7 +47,10 @@ class Exporter:
     def load_embed(self, entity):
         if not os.path.exists(self.embed_path.format(entity)):
             return {}
-        return np.load(self.embed_path.format(entity), allow_pickle=True).item()
+        try:
+            return np.load(self.embed_path.format(entity), allow_pickle=True).item()
+        except EOFError:
+            return {}
 
     def save_embed(self, entity, embed_dict: Dict[str, np.ndarray]):
         np.save(self.embed_path.format(entity), embed_dict, allow_pickle=True)

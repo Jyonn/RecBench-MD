@@ -47,10 +47,10 @@ class Worker:
         self.use_service = isinstance(self.caller, BaseService)
 
         if self.conf.tuner is not None:
+            self.conf.tuner = str(self.conf.tuner)
             assert not self.use_service, 'Tuner is not supported for service.'
-            if 'tuning' not in self.conf.tuner:
-                self.conf.tuner = os.path.join('tuning', self.model, self.conf.tuner + '.json')
-            self.sign = '@' + self.conf.tuner[:-5][-6:]
+            self.sign = '@' + self.conf.tuner
+            self.conf.tuner = os.path.join('tuning', self.model, self.conf.tuner + '.json')
             pnt(f'loading {self.sign} tuner')
             self.tuner_meta = Obj(json.load(open(self.conf.tuner)))
             required_args = ['use_lora', 'lora_r', 'lora_alpha', 'lora_dropout']
@@ -94,9 +94,15 @@ class Worker:
     def test_prompt(self):
         input_template = """User behavior sequence: \n{0}\nCandidate item: {1}"""
 
-        progress = self.exporter.load_progress()
-        if progress > 0:
+        # progress = self.exporter.load_progress()
+        # if progress > 0:
+        #     pnt(f'directly start from {progress}')
+        progress = 0
+        if self.exporter.exist():
+            responses = self.exporter.read()
+            progress = len(responses)
             pnt(f'directly start from {progress}')
+
         TqdmPrinter.activate()
         for index, data in enumerate(self.processor.generate(slicer=self.conf.slicer, source=self.conf.source)):
             if index < progress:
@@ -119,7 +125,7 @@ class Worker:
 
             if response is None:
                 pnt(f'failed to get response for {index} ({uid}, {iid})', current=index + 1, count=len(self.processor.test_set))
-                self.exporter.save_progress(index)
+                # self.exporter.save_progress(index)
                 exit(0)
 
             if self.use_service:
@@ -128,16 +134,22 @@ class Worker:
                 response = f'{response:.4f}'
             pnt(f'click: {click}, response: {response}', current=index + 1, count=len(self.processor.test_set))
             self.exporter.write(response)
-            self.exporter.save_progress(index + 1)
+            # self.exporter.save_progress(index + 1)
         TqdmPrinter.deactivate()
 
     def test_embed(self):
         history_template = """User behavior sequence: \n{0}"""
         candidate_template = """Candidate item: {0}"""
 
-        progress = self.exporter.load_progress()
-        if progress > 0:
+        # progress = self.exporter.load_progress()
+        # if progress > 0:
+        #     pnt(f'directly start from {progress}')
+        progress = 0
+        if self.exporter.exist():
+            responses = self.exporter.read()
+            progress = len(responses)
             pnt(f'directly start from {progress}')
+
         item_dict = self.exporter.load_embed('item')
         user_dict = self.exporter.load_embed('user')
 
@@ -167,10 +179,11 @@ class Worker:
                             break
                 if user_embed is None:
                     pnt(f'failed to get user embeds for {index} ({uid}, {iid})')
-                    self.exporter.save_progress(index)
+                    # self.exporter.save_progress(index)
                     exit(0)
                 user_dict[uid] = user_embed
-                self.exporter.save_embed('user', user_dict)
+                if index % 100 == 0:
+                    self.exporter.save_embed('user', user_dict)
 
             item_embed: Optional[np.ndarray] = None
             if iid in item_dict:
@@ -187,10 +200,11 @@ class Worker:
                             continue
                 if item_embed is None:
                     pnt(f'failed to get item embeds for {index} ({uid}, {iid})')
-                    self.exporter.save_progress(index)
+                    # self.exporter.save_progress(index)
                     exit(0)
                 item_dict[iid] = item_embed
-                self.exporter.save_embed('item', item_dict)
+                if index % 100 == 0:
+                    self.exporter.save_embed('item', item_dict)
 
             th_item_embed = torch.tensor(item_embed)
             th_user_embed = torch.tensor(user_embed)
@@ -198,7 +212,7 @@ class Worker:
             score = float(torch.cosine_similarity(th_item_embed, th_user_embed, dim=0))
             pnt(f'click: {click}, score: {score:.4f}', current=index + 1, count=len(self.processor.test_set))
             self.exporter.write(score)
-            self.exporter.save_progress(index + 1)
+            # self.exporter.save_progress(index + 1)
         TqdmPrinter.deactivate()
 
     def evaluate(self):
@@ -216,7 +230,10 @@ class Worker:
         self.exporter.save_metrics(results)
 
     def auto_convert(self):
-        progress = self.exporter.load_progress()
+        assert self.exporter.exist(), 'No response file found'
+        responses = self.exporter.read()
+        progress = len(responses)
+
         source_set = self.processor.get_source_set(self.conf.source)
         assert progress == len(source_set), f'{self.conf.source} is not fully tested'
 

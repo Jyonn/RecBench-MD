@@ -46,3 +46,10 @@ class Phi3TH7BModel(LongContextModel):
         super().__init__(**kwargs)
 
         self.max_len = 2e3
+
+
+class Phi2TH3BModel(LongContextModel):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        self.max_len = 2e3

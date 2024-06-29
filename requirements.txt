@@ -19,3 +19,4 @@ peft~=0.3.0
 scikit-learn~=1.1.2
 refconfig~=0.0.3
 UniTok~=3.5.1
+sentence_transformers~=2.2.2  # for e5 model
