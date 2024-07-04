@@ -14,8 +14,8 @@ class Dataset(BaseDataset):
     def __len__(self):
         return len(self.datalist)
 
-    def align(self, batch_size):
-        self.datalist = self.datalist.sort_values(Map.LEN_COL, ascending=False).reset_index(drop=True)
+    def align(self, batch_size, ascending=False):
+        self.datalist = self.datalist.sort_values(Map.LEN_COL, ascending=ascending).reset_index(drop=True)
 
         pnt(f'combining dataset by step-wise length alignment')
         num_batches = (len(self.datalist) + batch_size - 1) // batch_size

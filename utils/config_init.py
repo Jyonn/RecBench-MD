@@ -44,5 +44,3 @@ class ConfigInit:
 
         config = Obj(config)
         return config
-        # data, model, exp = config.data, config.model, config.exp
-        # return config, data, model, exp

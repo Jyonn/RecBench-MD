@@ -45,7 +45,7 @@ class BaseModel:
     def label_tokens(self):
         return torch.tensor([self.no_token, self.yes_token])
 
-    def prepare_model_finetuning(self, conf):
+    def prepare_model_finetuning(self, conf, inference_mode=False):
         if not conf.use_lora:
             pnt(f'fully finetuning {self.get_name()} model without lora')
             return
@@ -53,7 +53,7 @@ class BaseModel:
 
         pnt(f'finetuning {self.get_name()} model with lora ({conf.lora_r}, {conf.lora_alpha}, {conf.lora_dropout})')
         peft_config = LoraConfig(
-            inference_mode=False,
+            inference_mode=inference_mode,
             r=conf.lora_r,
             lora_alpha=conf.lora_alpha,
             lora_dropout=conf.lora_dropout
@@ -74,7 +74,7 @@ class BaseModel:
 
     def load(self, path):
         pnt(f'loading finetuned model from {path}')
-        self.model.load_state_dict(torch.load(path), strict=False)
+        self.model.load_state_dict(torch.load(path, map_location='cpu'), strict=False)
 
     @classmethod
     def get_name(cls):
@@ -103,7 +103,7 @@ class BaseModel:
 
     def finetune(self, batch):
         scores = self._get_scores(batch)
-        return self.loss_fct(scores, batch[Map.LBL_COL].to(self.device).float())
+        return self.loss_fct(scores.float(), batch[Map.LBL_COL].to(self.device).float())
 
     def evaluate(self, batch):
         scores = self._get_scores(batch)  # [B, V=30522]

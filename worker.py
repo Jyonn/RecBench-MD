@@ -57,7 +57,7 @@ class Worker:
             for arg in required_args:
                 assert arg in self.tuner_meta, f'{arg} is required in tuner configuration'
             self.caller = cast(BaseModel, self.caller)
-            self.caller.prepare_model_finetuning(self.tuner_meta)
+            self.caller.prepare_model_finetuning(self.tuner_meta, inference_mode=True)
             self.caller.load(self.conf.tuner.replace('.json', '.pt'))
         else:
             self.sign = ''

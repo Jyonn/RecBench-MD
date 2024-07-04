@@ -62,7 +62,7 @@ class Tuner:
         pigmento.add_log_plugin(self.log_path)
 
         self.caller = self.load_model()  # type: BaseModel
-        self.caller.prepare_model_finetuning(self.conf)
+        self.caller.prepare_model_finetuning(self.conf, inference_mode=False)
         if self.conf.tuner:
             self.caller.load(self.conf.tuner.replace('.json', '.pt'))
         self.caller.post_init()
@@ -82,6 +82,7 @@ class Tuner:
         conf['valid'] = '+'.join(sorted(self.valid_data))
         conf['model'] = self.model
         del conf['gpu']
+        del conf['init_eval']
         conf['use_lora'] = int(conf['use_lora'])
         return conf
 
@@ -184,7 +185,7 @@ class Tuner:
 
         train_dfs = pd.concat(train_dfs)
         train_ds = Dataset(train_dfs)
-        train_ds.align(batch_size=self.conf.batch_size)
+        train_ds.align(batch_size=self.conf.batch_size, ascending=False)
         train_dl = DataLoader(train_ds, batch_size=self.conf.batch_size, shuffle=False)
 
         total_train_steps = (len(train_ds) + self.conf.batch_size - 1) // self.conf.batch_size
@@ -194,7 +195,8 @@ class Tuner:
         if self.conf.eval_interval < 0:
             self.conf.eval_interval = total_train_steps // -self.conf.eval_interval
 
-        self.evaluate(valid_dls, -1)
+        if self.conf.init_eval:
+            self.evaluate(valid_dls, -1)
 
         for epoch in range(100):
             self.caller.model.train()
@@ -247,6 +249,7 @@ if __name__ == '__main__':
             eval_interval=1,
             patience=2,
             tuner=None,
+            init_eval=True,
         ),
         makedirs=[]
     ).parse()
