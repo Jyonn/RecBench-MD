@@ -71,6 +71,9 @@ class Worker:
         pigmento.add_log_plugin(os.path.join(self.log_dir, f'{self.model}{self.sign}.log'))
         self.exporter = Exporter(os.path.join(self.log_dir, f'{self.model}{self.sign}.dat'))
 
+        if self.conf.rerun:
+            self.exporter.reset()
+
     def get_device(self):
         if self.conf.gpu is None:
             return GPU.auto_choose(torch_format=True)
@@ -291,6 +294,7 @@ if __name__ == '__main__':
             metrics='+'.join(['GAUC', 'NDCG@1', 'NDCG@5', 'MRR', 'F1', 'Recall@1', 'Recall@5']),
             type='prompt',
             tuner=None,
+            rerun=False,
         ),
         makedirs=[]
     ).parse()

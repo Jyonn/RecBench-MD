@@ -30,18 +30,20 @@ class LongContextModel(BaseModel, abc.ABC):
 
 
 class QWen2TH7BModel(LongContextModel):
-    pass
+    KEY = 'Qwen/Qwen2-7B-Instruct'
 
 
 class GLM4TH9BModel(LongContextModel):
-    pass
+    KEY = 'THUDM/glm-4-9b-chat'
 
 
 class Mistral7BModel(LongContextModel):
-    pass
+    KEY = 'mistralai/Mistral-7B-Instruct-v0.3'
 
 
 class Phi3TH7BModel(LongContextModel):
+    KEY = 'microsoft/Phi-3-small-8k-instruct'
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -49,7 +51,17 @@ class Phi3TH7BModel(LongContextModel):
 
 
 class Phi2TH3BModel(LongContextModel):
+    KEY = 'microsoft/phi-2'
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
+        self.max_len = 2e3
+
+
+class RecGPT7BModel(LongContextModel):
+    KEY = 'vinai/RecGPT-7B'
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.max_len = 2e3

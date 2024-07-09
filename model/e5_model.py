@@ -40,8 +40,8 @@ class E5Model(BaseModel, abc.ABC):
 
 
 class E5BaseModel(E5Model):
-    pass
+    KEY = 'e5-base-v2'
 
 
 class E5LargeModel(E5Model):
-    pass
+    KEY = 'intfloat/e5-large-v2'

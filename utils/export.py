@@ -7,10 +7,15 @@ import numpy as np
 class Exporter:
     def __init__(self, path):
         self.path = path
-        self.error_path = path + '.progress'
         self.metrics_path = path + '.metrics'
         self.embed_path = path + '.{0}.npy'
         self.convert_path = path + '.convert'
+
+    def reset(self):
+        if os.path.exists(self.path):
+            os.remove(self.path)
+        if os.path.exists(self.convert_path):
+            os.remove(self.convert_path)
 
     def exist(self):
         return os.path.exists(self.path)
@@ -25,17 +30,6 @@ class Exporter:
         # each line is a float
         with open(path, 'r') as f:
             return [handler(line.strip()) for line in f]
-
-    # def save_progress(self, index):
-    #     with open(self.error_path, 'w') as f:
-    #         f.write(str(index))
-    #
-    # def load_progress(self):
-    #     if not os.path.exists(self.error_path):
-    #         return 0
-    #
-    #     with open(self.error_path, 'r') as f:
-    #         return int(f.read())
 
     def save_metrics(self, metrics):
         # for metric, value in results.items():

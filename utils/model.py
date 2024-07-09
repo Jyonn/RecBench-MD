@@ -15,4 +15,4 @@ for line in model_data.strip().split('\n'):
 def match(key):
     if key in model:
         return model[key]
-    raise KeyError(f'Key {key} not found in .model')
+    return None

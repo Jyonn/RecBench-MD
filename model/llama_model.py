@@ -38,12 +38,12 @@ class LlamaModel(BaseModel, abc.ABC):
 
 
 class Llama1Model(LlamaModel):
-    pass
+    KEY = 'huggyllama/llama-7b'
 
 
 class Llama2Model(LlamaModel):
-    pass
+    KEY = 'meta-llama/Llama-2-7b-hf'
 
 
 class Llama3Model(LlamaModel):
-    pass
+    KEY = 'meta-llama/Meta-Llama-3-8B'

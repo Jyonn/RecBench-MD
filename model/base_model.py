@@ -9,6 +9,7 @@ from utils import model
 
 
 class BaseModel:
+    KEY = None
     PREFIX_PROMPT: str
     SUFFIX_PROMPT: str
     AS_DICT: bool = False
@@ -19,8 +20,9 @@ class BaseModel:
         if isinstance(device, tuple):
             self.device, self.device_ids = device
 
-        self.key = model.match(self.get_name())
+        self.key = model.match(self.get_name()) or self.KEY
 
+        self.is_parallel = False
         self.model = None
         self.tokenizer = None
         self.max_len = None
@@ -39,6 +41,7 @@ class BaseModel:
         self.model.to(self.device)
         if self.device_ids is not None:
             self.model = torch.nn.DataParallel(self.model, device_ids=self.device_ids)
+            self.is_parallel = True
         return self
 
     @property
@@ -62,19 +65,30 @@ class BaseModel:
 
     def save(self, path):
         # torch.save(self.model.state_dict(), path)
+        module = self.model
+        if self.is_parallel:
+            module = self.model.module
         if self.use_lora:
             # only save lora parameters
             state_dict = dict()
-            for k, v in self.model.state_dict().items():
+            for k, v in module.state_dict().items():
                 if 'lora' in k:
                     state_dict[k] = v
         else:
-            state_dict = self.model.state_dict()
+            state_dict = module.state_dict()
         torch.save(state_dict, path)
 
     def load(self, path):
         pnt(f'loading finetuned model from {path}')
-        self.model.load_state_dict(torch.load(path, map_location='cpu'), strict=False)
+        state_dict = torch.load(path, map_location='cpu')
+        state_dict_ = dict()
+        assert self.is_parallel is False  # it can be true after loading
+        for k in state_dict:
+            if k.startswith('module.'):
+                state_dict_[k[7:]] = state_dict[k]
+            else:
+                state_dict_[k] = state_dict[k]
+        self.model.load_state_dict(state_dict_, strict=False)
 
     @classmethod
     def get_name(cls):

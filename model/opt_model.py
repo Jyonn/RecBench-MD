@@ -24,8 +24,8 @@ class OPTModel(BaseModel, abc.ABC):
 
 
 class OPT1BModel(OPTModel):
-    pass
+    KEY = 'facebook/opt-1.3b'
 
 
 class OPT350MModel(OPTModel):
-    pass
+    KEY = 'facebook/opt-350m'

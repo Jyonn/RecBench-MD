@@ -8,3 +8,4 @@ p5 = beauty:t5-base$/data_8T2/qijiong/Model/beauty-base.pth
 phi = 3th7b:microsoft/Phi-3-small-8k-instruct, 2th3b:microsoft/phi-2
 recformer = :allenai/longformer-base-4096$/data_8T2/qijiong/Model/recformer_seqrec_ckpt.bin
 e5 = base:intfloat/e5-base-v2, large:intfloat/e5-large-v2
+recgpt = 7b:vinai/RecGPT-7B

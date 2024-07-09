@@ -44,8 +44,8 @@ class BertModel(BaseModel, abc.ABC):
 
 
 class BertBaseModel(BertModel):
-    pass
+    KEY = 'bert-base-uncased'
 
 
 class BertLargeModel(BertModel):
-    pass
+    KEY = 'bert-large-uncased'
