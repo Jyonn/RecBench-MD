@@ -11,6 +11,7 @@ from utils.auth import HF_KEY
 class LlamaModel(BaseModel, abc.ABC):
     PREFIX_PROMPT = SIMPLE_SYSTEM
     SUFFIX_PROMPT = SIMPLE_SUFFIX
+    BIT = 16
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -24,7 +25,7 @@ class LlamaModel(BaseModel, abc.ABC):
 
         self.model = AutoModelForCausalLM.from_pretrained(
             self.key,
-            torch_dtype=torch.bfloat16,
+            torch_dtype=self.get_dtype(),
             **params,
         )  # type: LlamaForCausalLM
         self.tokenizer = AutoTokenizer.from_pretrained(

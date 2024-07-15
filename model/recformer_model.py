@@ -13,6 +13,7 @@ class RecformerModel(BaseModel, abc.ABC):
     PREFIX_PROMPT = SIMPLE_SUFFIX
     SUFFIX_PROMPT = SIMPLE_SUFFIX
     AS_DICT = True
+    BIT = 32
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

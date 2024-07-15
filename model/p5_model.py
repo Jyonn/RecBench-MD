@@ -13,6 +13,7 @@ from model.p5.tokenization import P5Tokenizer
 class P5Model(BaseModel, abc.ABC):
     PREFIX_PROMPT = CHAT_SYSTEM
     SUFFIX_PROMPT = SIMPLE_SUFFIX
+    BIT = 32
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

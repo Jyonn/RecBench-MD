@@ -2,6 +2,7 @@ import copy
 import hashlib
 import json
 import os.path
+from typing import Type
 
 import numpy as np
 import pandas as pd
@@ -16,8 +17,10 @@ from loader.class_hub import ClassHub
 from loader.dataset import Dataset
 from loader.map import Map
 from loader.preparer import Preparer
+from model.base_dense_code_model import BaseDenseCodeModel
 from model.base_model import BaseModel
 from process.base_processor import BaseProcessor
+from tuner import Tuner
 from utils.config_init import ConfigInit
 from utils.function import load_processor
 from utils.gpu import GPU
@@ -26,87 +29,15 @@ from utils.monitor import Monitor
 from utils.tqdm_printer import TqdmPrinter
 
 
-class Tuner:
-    def __init__(self, conf):
-        self.conf = conf
-        self.model = conf.model.replace('.', '').lower()
-        self.train_data = conf.train.split('+')
-        self.valid_data = conf.valid.split('+')
-
-        self.processors = dict()
-        for data in set(self.train_data + self.valid_data):
-            self.processors[data] = load_processor(data)  # type: BaseProcessor
-        self.train_processors = [self.processors[data] for data in self.train_data]  # type: list[BaseProcessor]
-        self.valid_processors = [self.processors[data] for data in self.valid_data]  # type: list[BaseProcessor]
-
-        if self.conf.tuner is not None:
-            self.conf.tuner = str(self.conf.tuner)
-            self.conf.tuner = os.path.join('tuning', self.model, self.conf.tuner + '.json')
-            self.tuner_meta = Obj(json.load(open(self.conf.tuner)))
-            required_args = ['use_lora', 'lora_r', 'lora_alpha', 'lora_dropout']
-            for arg in required_args:
-                assert arg in self.tuner_meta, f'{arg} is required in tuner configuration'
-                assert self.tuner_meta[arg] == self.conf[arg], f'{arg} should be consistent with previous tuner'
-
-        self.log_dir = os.path.join('tuning', self.model)
-        os.makedirs(self.log_dir, exist_ok=True)
-
-        self.meta = self.get_meta()
-        self.sign = self.get_signature()
-
-        self.model_path = os.path.join(self.log_dir, f'{self.sign}.pt')
-        self.meta_path = os.path.join(self.log_dir, f'{self.sign}.json')
-        self.log_path = os.path.join(self.log_dir, f'{self.sign}.log')
-        pigmento.add_log_plugin(self.log_path)
-
-        self.caller = self.load_model()  # type: BaseModel
-        self.caller.prepare_model_finetuning(self.conf, inference_mode=False)
-        if self.conf.tuner:
-            self.caller.load(self.conf.tuner.replace('.json', '.pt'))
-        self.caller.post_init()
-
-        json.dump(self.meta, open(self.meta_path, 'w'), indent=2)
-
-        self.optimizer = torch.optim.Adam(
-            params=filter(lambda p: p.requires_grad, self.caller.model.parameters()),
-            lr=self.conf.lr
-        )
-
-        self.monitor = Monitor(patience=self.conf.patience)
-
-    def get_meta(self):
-        conf = copy.deepcopy(Obj.raw(self.conf))
-        conf['train'] = '+'.join(sorted(self.train_data))
-        conf['valid'] = '+'.join(sorted(self.valid_data))
-        conf['model'] = self.model
-        del conf['gpu']
-        del conf['init_eval']
-        conf['use_lora'] = int(conf['use_lora'])
-        return conf
-
-    def get_signature(self):
-        keys = sorted(self.meta.keys())
-        key = '-'.join([f'{k}={self.meta[k]}' for k in keys])
-        md5 = hashlib.md5(key.encode()).hexdigest()
-        return md5[:6]
-
-    def get_device(self):
-        if self.conf.gpu is None:
-            return GPU.auto_choose(torch_format=True)
-        if self.conf.gpu == -1:
-            pnt('manually choosing CPU device')
-            return 'cpu'
-
-        pnt(f'manually choosing {self.conf.gpu}-th GPU')
-        if isinstance(self.conf.gpu, int):
-            return f'cuda:{self.conf.gpu}'
-        gpus = list(map(int, self.conf.gpu.split('+')))
-        return f'cuda:{gpus[0]}', gpus
+class DenseCodeTuner(Tuner):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
     def load_model(self):
         models = ClassHub.models()
         if self.model in models:
-            model = models[self.model]
+            model = models[self.model]  # type: Type[BaseModel]
+            assert issubclass(model, BaseDenseCodeModel), f'{model} is not a subclass of BaseDenseCodeModel'
             pnt(f'loading {model.get_name()} model')
             return model(device=self.get_device())
         raise ValueError(f'unknown model: {self.model}')
@@ -253,5 +184,5 @@ if __name__ == '__main__':
         makedirs=[]
     ).parse()
 
-    tuner = Tuner(configuration)
+    tuner = DenseCodeTuner(configuration)
     tuner.run()

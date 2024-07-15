@@ -13,6 +13,7 @@ class BaseModel:
     PREFIX_PROMPT: str
     SUFFIX_PROMPT: str
     AS_DICT: bool = False
+    BIT: int
 
     def __init__(self, device):
         self.device = device
@@ -36,6 +37,13 @@ class BaseModel:
         self.loss_fct = torch.nn.BCELoss()
         self.softmax = torch.nn.Softmax(dim=0)
         self.softmax_sft = torch.nn.Softmax()
+
+    def get_dtype(self):
+        if self.BIT == 16:
+            return torch.bfloat16
+        if self.BIT == 32:
+            return torch.float32
+        raise ValueError(f'unsupported bit: {self.BIT}')
 
     def post_init(self):
         self.model.to(self.device)

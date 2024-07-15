@@ -12,6 +12,7 @@ from model.base_model import BaseModel
 class BertModel(BaseModel, abc.ABC):
     PREFIX_PROMPT = SIMPLE_SYSTEM
     SUFFIX_PROMPT = SIMPLE_SUFFIX
+    BIT = 32
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

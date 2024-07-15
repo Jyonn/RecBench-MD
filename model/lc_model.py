@@ -11,12 +11,13 @@ from utils.auth import HF_KEY
 class LongContextModel(BaseModel, abc.ABC):
     PREFIX_PROMPT = CHAT_SYSTEM
     SUFFIX_PROMPT = SIMPLE_SUFFIX
+    BIT = 16
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
         # use large size opt model
-        self.model = AutoModelForCausalLM.from_pretrained(self.key, trust_remote_code=True, token=HF_KEY, torch_dtype=torch.float16)
+        self.model = AutoModelForCausalLM.from_pretrained(self.key, trust_remote_code=True, token=HF_KEY, torch_dtype=self.get_dtype())
         self.tokenizer = AutoTokenizer.from_pretrained(self.key, trust_remote_code=True, token=HF_KEY)
         self.max_len = 10_000
 
