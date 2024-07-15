@@ -18,7 +18,7 @@ class LongContextModel(BaseModel, abc.ABC):
         # use large size opt model
         self.model = AutoModelForCausalLM.from_pretrained(self.key, trust_remote_code=True, token=HF_KEY, torch_dtype=torch.float16)
         self.tokenizer = AutoTokenizer.from_pretrained(self.key, trust_remote_code=True, token=HF_KEY)
-        self.max_len = 1e5
+        self.max_len = 10_000
 
         # self.yes_token = self.tokenizer.convert_tokens_to_ids('YES')
         # self.no_token = self.tokenizer.convert_tokens_to_ids('NO')
@@ -36,6 +36,9 @@ class QWen2TH7BModel(LongContextModel):
 class GLM4TH9BModel(LongContextModel):
     KEY = 'THUDM/glm-4-9b-chat'
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
 
 class Mistral7BModel(LongContextModel):
     KEY = 'mistralai/Mistral-7B-Instruct-v0.3'
@@ -47,7 +50,7 @@ class Phi3TH7BModel(LongContextModel):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self.max_len = 2e3
+        self.max_len = 2_000
 
 
 class Phi2TH3BModel(LongContextModel):
@@ -56,7 +59,7 @@ class Phi2TH3BModel(LongContextModel):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self.max_len = 2e3
+        self.max_len = 2_000
 
 
 class RecGPT7BModel(LongContextModel):
@@ -64,4 +67,4 @@ class RecGPT7BModel(LongContextModel):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.max_len = 2e3
+        self.max_len = 2_000

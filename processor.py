@@ -1,5 +1,6 @@
 import pigmento
 from pigmento import pnt
+from tqdm import tqdm
 
 from utils.config_init import ConfigInit
 from utils.data import get_data_dir
@@ -12,7 +13,10 @@ pigmento.add_time_prefix()
 if __name__ == '__main__':
     configuration = ConfigInit(
         required_args=['data'],
-        default_args=dict(slicer=-20),
+        default_args=dict(
+            slicer=-20,
+            source='original',
+        ),
         makedirs=[]
     ).parse()
 
@@ -28,7 +32,21 @@ if __name__ == '__main__':
 
     count = 0
 
-    for uid, iid, history, candidate, click in processor.iterate(slicer=configuration.slicer):
+    user_ids = set()
+    index = 0
+    for uid, iid, history, candidate, click in tqdm(processor.generate(
+            slicer=configuration.slicer,
+            source=configuration.source
+    )):
+        if index == 12140:
+            print(uid, iid, history, candidate, click)
+            break
+        index += 1
+        if len(user_ids) < 3:
+            user_ids.add(uid)
+        if uid not in user_ids:
+            continue
+
         # print(uid, iid, history, candidate, click)
         print(f'User: {uid}, Item: {iid}, History, Click: {click}')
         print(f'History:')
@@ -36,9 +54,9 @@ if __name__ == '__main__':
             print(f'\t{i:2d}: {h}')
         print(f'Candidate: {candidate}')
 
-        count += 1
-        if count > 2:
-            break
+        # count += 1
+        # if count > 10:
+        #     break
 
     if processor.test_set_required:
         test_set_user = len(processor.test_set[processor.UID_COL].unique())

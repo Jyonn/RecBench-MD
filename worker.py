@@ -102,7 +102,7 @@ class Worker:
         #     pnt(f'directly start from {progress}')
         progress = 0
         if self.exporter.exist():
-            responses = self.exporter.read()
+            responses = self.exporter.read(to_float=False)
             progress = len(responses)
             pnt(f'directly start from {progress}')
 
@@ -124,7 +124,12 @@ class Worker:
                         break
                 if response is not None:
                     break
-                candidate = candidate[:len(candidate) // 2]
+                # find most long items in the history and select top 10% to cut off
+                lengths = [len(history[i]) for i in range(len(history))]
+                sorted_indices = np.argsort(lengths)[::-1].tolist()  # descending order
+                for i in sorted_indices[:max(len(sorted_indices) // 10, 1)]:
+                    history[i] = history[i][:max(len(history[i]) // 2, 10)]
+                candidate = candidate[:max(len(candidate) // 2, 10)]
 
             if response is None:
                 pnt(f'failed to get response for {index} ({uid}, {iid})', current=index + 1, count=len(self.processor.test_set))
@@ -174,12 +179,27 @@ class Worker:
                 if self.caller.AS_DICT:
                     user_embed = self.caller.embed(history)
                 else:
-                    for i in range(len(history)):
-                        _history = [f'({j + 1}) {history[i + j]}' for j in range(len(history) - i)]
-                        history_sequence = history_template.format('\n'.join(_history))
-                        user_embed = self.caller.embed(history_sequence)
+                    # for i in range(len(history)):
+                    #     _history = [f'({j + 1}) {history[i + j]}' for j in range(len(history) - i)]
+                    #     history_sequence = history_template.format('\n'.join(_history))
+                    #     user_embed = self.caller.embed(history_sequence)
+                    #     if user_embed is not None:
+                    #         break
+                    for _ in range(5):
+                        for i in range(len(history)):
+                            _history = [f'({j + 1}) {history[i + j]}' for j in range(len(history) - i)]
+                            history_sequence = history_template.format('\n'.join(_history), candidate)
+                            user_embed = self.caller.embed(history_sequence)
+                            if user_embed is not None:
+                                break
                         if user_embed is not None:
                             break
+                        # find most long items in the history and select top 10% to cut off
+                        lengths = [len(history[i]) for i in range(len(history))]
+                        sorted_indices = np.argsort(lengths)[::-1].tolist()  # descending order
+                        for i in sorted_indices[:max(len(sorted_indices) // 10, 1)]:
+                            history[i] = history[i][:max(len(history[i]) // 2, 10)]
+
                 if user_embed is None:
                     pnt(f'failed to get user embeds for {index} ({uid}, {iid})')
                     # self.exporter.save_progress(index)
@@ -234,7 +254,7 @@ class Worker:
 
     def auto_convert(self):
         assert self.exporter.exist(), 'No response file found'
-        responses = self.exporter.read()
+        responses = self.exporter.read(to_float=False)
         progress = len(responses)
 
         source_set = self.processor.get_source_set(self.conf.source)
