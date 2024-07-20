@@ -4,23 +4,29 @@ import pigmento
 from pigmento import pnt
 
 from loader.class_hub import ClassHub
-from loader.dense_code_preparer import DenseCodePreparer
-from model.base_dense_code_model import BaseDenseCodeModel
+from loader.discrete_code_preparer import DiscreteCodePreparer
+from model.base_discrete_code_model import BaseDiscreteCodeModel
 from model.base_model import BaseModel
 from tuner import Tuner
+from utils.code import get_code_indices
 from utils.config_init import ConfigInit
 
 
-class DenseCodeTuner(Tuner):
-    PREPARER_CLASS = DenseCodePreparer
+class DiscreteCodeTuner(Tuner):
+    PREPARER_CLASS = DiscreteCodePreparer
+
+    num_codes: int
 
     def load_model(self):
+        assert len(self.processors) == 1
+        _, self.num_codes = get_code_indices(self.conf.code_path)
+
         models = ClassHub.models()
         if self.model in models:
             model = models[self.model]  # type: Type[BaseModel]
-            assert issubclass(model, BaseDenseCodeModel), f'{model} is not a subclass of BaseDenseCodeModel'
+            assert issubclass(model, BaseDiscreteCodeModel), f'{model} is not a subclass of BaseDiscreteCodeModel'
             pnt(f'loading {model.get_name()} model')
-            return model(device=self.get_device())
+            return model(device=self.get_device(), num_codes=self.num_codes)
         raise ValueError(f'unknown model: {self.model}')
 
 
@@ -53,5 +59,5 @@ if __name__ == '__main__':
         makedirs=[]
     ).parse()
 
-    tuner = DenseCodeTuner(conf=configuration)
+    tuner = DiscreteCodeTuner(conf=configuration)
     tuner.run()

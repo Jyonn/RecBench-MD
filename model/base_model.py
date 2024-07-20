@@ -35,6 +35,7 @@ class BaseModel:
 
         # self.loss_fct = torch.nn.CrossEntropyLoss()
         self.loss_fct = torch.nn.BCELoss()
+        self.code_loss_fct = torch.nn.CrossEntropyLoss()
         self.softmax = torch.nn.Softmax(dim=0)
         self.softmax_sft = torch.nn.Softmax()
 

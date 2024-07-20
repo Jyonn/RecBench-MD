@@ -1,17 +1,22 @@
-import torch
+from pigmento import pnt
+from tqdm import tqdm
 
 from loader.dataset import Dataset
 from loader.dense_code_map import DenseCodeMap as Map
 
 
 class DenseCodeDataset(Dataset):
-    def __getitem__(self, idx):
-        values = self.datalist.iloc[idx]
-        return {
-            Map.IPT_COL: torch.tensor(values[Map.IPT_COL], dtype=torch.long),
-            Map.VOC_COL: torch.tensor(values[Map.VOC_COL], dtype=torch.long),
-            Map.LBL_COL: torch.tensor(values[Map.LBL_COL], dtype=torch.long),
-            Map.UID_COL: torch.tensor(values[Map.UID_COL], dtype=torch.long),
-            Map.IID_COL: torch.tensor(values[Map.IID_COL], dtype=torch.long),
-            Map.LEN_COL: torch.tensor(values[Map.LEN_COL], dtype=torch.long),
-        }
+    def align(self, batch_size, ascending=False):
+        self.datalist = self.datalist.sort_values(Map.LEN_COL, ascending=ascending).reset_index(drop=True)
+
+        pnt(f'combining dataset by step-wise length alignment')
+        num_batches = (len(self.datalist) + batch_size - 1) // batch_size
+        for i in tqdm(range(num_batches), total=num_batches):
+            start_index = i * batch_size
+            end_index = min(start_index + batch_size, len(self.datalist))
+            batch = self.datalist.loc[start_index:end_index - 1]
+            max_len = batch[Map.LEN_COL].max()
+            self.datalist.loc[start_index:end_index - 1, Map.IPT_COL] = batch[Map.IPT_COL].apply(
+                lambda x: list(x)[:max_len] + [0] * (max_len - len(x)))
+            self.datalist.loc[start_index:end_index - 1, Map.VOC_COL] = batch[Map.VOC_COL].apply(
+                lambda x: list(x)[:max_len] + [0] * (max_len - len(x)))

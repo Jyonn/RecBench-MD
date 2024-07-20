@@ -25,13 +25,6 @@ from utils.tqdm_printer import TqdmPrinter
 
 class Worker:
     def __init__(self, conf):
-        self.services = [
-            GPT35Service(auth=GPT_KEY), GPT4Service(auth=GPT_KEY),
-            Claude21Service(auth=CLAUDE_KEY), Claude3Service(auth=CLAUDE_KEY),
-            GeminiService(auth=GEMINI_KEY)
-        ]
-        self.models = ClassHub.models()
-
         self.conf = conf
         self.data = conf.data.lower()
         self.model = conf.model.replace('.', '').lower()
@@ -84,11 +77,18 @@ class Worker:
         return f'cuda:{self.conf.gpu}'
 
     def load_model_or_service(self):
-        if self.model in self.models:
-            model = self.models[self.model]
+        models = ClassHub.models()
+        if self.model in models:
+            model = models[self.model]
             pnt(f'loading {model.get_name()} model')
             return model(device=self.get_device()).post_init()
-        for service in self.services:
+
+        services = [
+            GPT35Service(auth=GPT_KEY), GPT4Service(auth=GPT_KEY),
+            Claude21Service(auth=CLAUDE_KEY), Claude3Service(auth=CLAUDE_KEY),
+            GeminiService(auth=GEMINI_KEY)
+        ]
+        for service in services:
             if service.get_name() == self.model:
                 pnt(f'loading {service.get_name()} service')
                 return service

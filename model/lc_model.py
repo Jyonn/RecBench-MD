@@ -1,6 +1,5 @@
 import abc
 
-import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from utils.prompt import CHAT_SYSTEM, SIMPLE_SUFFIX

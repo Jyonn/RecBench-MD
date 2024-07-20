@@ -13,7 +13,6 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from loader.class_hub import ClassHub
-from loader.dataset import Dataset
 from loader.map import Map
 from loader.preparer import Preparer
 from model.base_model import BaseModel
@@ -23,10 +22,11 @@ from utils.function import load_processor
 from utils.gpu import GPU
 from utils.metrics import MetricPool
 from utils.monitor import Monitor
-from utils.tqdm_printer import TqdmPrinter
 
 
 class Tuner:
+    PREPARER_CLASS = Preparer
+
     def __init__(self, conf):
         self.conf = conf
         self.model = conf.model.replace('.', '').lower()
@@ -131,9 +131,9 @@ class Tuner:
         with torch.no_grad():
             metric_name, metric_values = None, []
             for i_dl, valid_dl in enumerate(valid_dls):
-                TqdmPrinter.activate()
+                pnt(f'(epoch {epoch}) validating {i_dl + 1}-th dataset of {len(valid_dls)}: {self.valid_processors[i_dl].get_name()}')
                 score_list, label_list, group_list = [], [], []
-                for index, batch in enumerate(valid_dl):
+                for index, batch in tqdm(enumerate(valid_dl), total=total_valid_steps[i_dl]):
                     scores = self.caller.evaluate(batch)
                     labels = batch[Map.LBL_COL].tolist()
                     groups = batch[Map.UID_COL].tolist()
@@ -142,17 +142,12 @@ class Tuner:
                     label_list.extend(labels)
                     group_list.extend(groups)
 
-                    pnt(f'(epoch {epoch}) validating {i_dl + 1}-th dataset of {len(valid_dls)}: {self.valid_processors[i_dl].get_name()}',
-                        current=index + 1, count=total_valid_steps[i_dl])
-
                 pool = MetricPool.parse([self.conf.valid_metric])
                 results = pool.calculate(score_list, label_list, group_list)
                 for k in results:
                     metric_name = k
                     metric_values.append(results[k])
-                pnt(f'(epoch {epoch}) validation on {self.valid_processors[i_dl].get_name()} dataset with {metric_name}: {metric_values[-1]:.4f}',
-                    current=i_dl + 1, count=len(valid_dls))
-                TqdmPrinter.deactivate()
+                pnt(f'(epoch {epoch}) validation on {self.valid_processors[i_dl].get_name()} dataset with {metric_name}: {metric_values[-1]:.4f}')
         self.caller.model.train()
 
         metric_value = np.mean(metric_values).item()
@@ -167,23 +162,45 @@ class Tuner:
         #     break
         return action
 
-    def finetune(self):
+    def get_eval_interval(self, total_train_steps):
+        if self.conf.eval_interval == 0:
+            self.conf.eval_interval = -1
+
+        if self.conf.eval_interval < 0:
+            return total_train_steps // -self.conf.eval_interval
+
+        return self.conf.eval_interval
+
+    def load_data(self):
         train_dfs, valid_dls = [], []
 
         for processor in self.train_processors:
-            preparer = Preparer(processor, self.caller, self.conf)
+            preparer = self.PREPARER_CLASS(
+                processor=processor,
+                model=self.caller,
+                conf=self.conf
+            )
             if not preparer.has_generated:
                 processor.load()
             train_dfs.append(preparer.load_or_generate(mode='train'))
 
         for processor in self.valid_processors:
-            preparer = Preparer(processor, self.caller, self.conf)
+            preparer = self.PREPARER_CLASS(
+                processor=processor,
+                model=self.caller,
+                conf=self.conf
+            )
             if not preparer.has_generated:
                 processor.load()
             valid_dls.append(preparer.load_or_generate(mode='valid'))
 
+        return train_dfs, valid_dls
+
+    def finetune(self):
+        train_dfs, valid_dls = self.load_data()
+
         train_dfs = pd.concat(train_dfs)
-        train_ds = Dataset(train_dfs)
+        train_ds = self.PREPARER_CLASS.DATASET_CLASS(train_dfs)
         train_ds.align(batch_size=self.conf.batch_size, ascending=False)
         train_dl = DataLoader(train_ds, batch_size=self.conf.batch_size, shuffle=False)
 
@@ -191,8 +208,7 @@ class Tuner:
 
         self.list_tunable_parameters()
 
-        if self.conf.eval_interval < 0:
-            self.conf.eval_interval = total_train_steps // -self.conf.eval_interval
+        eval_interval = self.get_eval_interval(total_train_steps)
 
         if self.conf.init_eval:
             self.evaluate(valid_dls, -1)
@@ -211,13 +227,12 @@ class Tuner:
                     self.optimizer.zero_grad()
                     accumulate_step = 0
 
-                if (index + 1) % self.conf.eval_interval == 0:
+                if (index + 1) % eval_interval == 0:
                     action = self.evaluate(valid_dls, epoch)
                     if action is self.monitor.STOP:
                         pnt('early stopping')
                         pnt(f'please evaluate the model by: python worker.py --model {self.model} --tuner {self.sign} --data <data_name>')
                         return
-                # pnt(f'(epoch {epoch}), current loss: {loss.item():.4f}', current=index, count=total_train_steps)
 
     def run(self):
         self.finetune()
@@ -225,7 +240,6 @@ class Tuner:
 
 if __name__ == '__main__':
     pigmento.add_time_prefix()
-    pnt.set_basic_printer(TqdmPrinter())
     pnt.set_display_mode(
         use_instance_class=True,
         display_method_name=False
@@ -245,7 +259,7 @@ if __name__ == '__main__':
             lora_dropout=0.1,
             lr=0.00001,
             acc_batch=1,
-            eval_interval=1,
+            eval_interval=0,
             patience=2,
             tuner=None,
             init_eval=True,

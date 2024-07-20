@@ -5,7 +5,6 @@ from torch import nn
 from loader.class_hub import ClassHub
 from model.base_model import BaseModel
 from utils.config_init import ConfigInit
-from utils.tqdm_printer import TqdmPrinter
 
 
 class Sizer:
@@ -34,7 +33,6 @@ class Sizer:
 
 if __name__ == '__main__':
     pigmento.add_time_prefix()
-    pnt.set_basic_printer(TqdmPrinter())
     pnt.set_display_mode(
         use_instance_class=True,
         display_method_name=False

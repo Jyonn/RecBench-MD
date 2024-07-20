@@ -42,7 +42,7 @@ def argparse():
     for key, value in kwargs.items():
         if value == 'null':
             kwargs[key] = None
-        elif value.isdigit():
+        elif value.isdigit() or (value.startswith('-') and value[1:].isdigit()):
             kwargs[key] = int(value)
         elif value.lower() == 'true':
             kwargs[key] = True
@@ -63,3 +63,4 @@ def load_processor(dataset, data_dir=None):
     processor = processors[dataset]
     pnt(f'loading {processor.get_name()} processor')
     return processor(data_dir=data_dir)
+

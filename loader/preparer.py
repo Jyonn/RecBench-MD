@@ -5,15 +5,17 @@ import pandas as pd
 from UniTok import Vocab
 from pigmento import pnt
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 from loader.dataset import Dataset
 from loader.map import Map
 from model.base_model import BaseModel
 from process.base_processor import BaseProcessor
-from utils.tqdm_printer import TqdmPrinter
 
 
 class Preparer:
+    DATASET_CLASS = Dataset
+
     def __init__(self, processor: BaseProcessor, model: BaseModel, conf):
         self.processor = processor
         self.model = model
@@ -21,8 +23,8 @@ class Preparer:
 
         self.store_dir = os.path.join(
             'prepare',
-            f'{self.processor.get_name()}_{self.model.get_name()}',
-            f'{self.conf.valid_ratio}'
+            self.get_primary_signature(),
+            self.get_secondary_signature(),
         )
         os.makedirs(self.store_dir, exist_ok=True)
         self.iid_vocab = Vocab(name=Map.IID_COL)
@@ -32,6 +34,12 @@ class Preparer:
         self.valid_datapath = os.path.join(self.store_dir, 'valid.parquet')
 
         self.has_generated = os.path.exists(self.train_datapath) and os.path.exists(self.valid_datapath)
+
+    def get_primary_signature(self):
+        return f'{self.processor.get_name()}_{self.model.get_name()}'
+
+    def get_secondary_signature(self):
+        return f'{self.conf.valid_ratio}'
 
     def tokenize_items(self, source='finetune', item_attrs=None):
         item_set = self.processor.get_item_subset(source, slicer=self.conf.slicer)
@@ -50,10 +58,12 @@ class Preparer:
 
         datalist = []
 
-        TqdmPrinter.activate()
         max_sequence_len = 0
-        for index, data in enumerate(self.processor.generate(slicer=self.conf.slicer, source='finetune', id_only=True)):
-            pnt(f'preprocessing on the {self.processor.get_name()} dataset', current=index + 1, count=len(self.processor.finetune_set))
+        pnt(f'preprocessing on the {self.processor.get_name()} dataset')
+        for index, data in tqdm(
+                enumerate(self.processor.generate(slicer=self.conf.slicer, source='finetune', id_only=True)),
+                total=len(self.processor.get_source_set(source='finetune'))
+        ):
             uid, iid, history, label = data
 
             current_item = items[iid][:]
@@ -84,7 +94,6 @@ class Preparer:
             assert input_ids is not None, f'failed to get input_ids for {index} ({uid}, {iid})'
             max_sequence_len = max(max_sequence_len, len(input_ids))
             datalist.append({Map.IPT_COL: input_ids, Map.LBL_COL: label, Map.UID_COL: uid, Map.IID_COL: iid})
-        TqdmPrinter.deactivate()
 
         for data in datalist:
             data[Map.LEN_COL] = len(data[Map.IPT_COL])
@@ -111,7 +120,7 @@ class Preparer:
         return train_datalist, valid_datalist
 
     def _pack_datalist(self, datalist):
-        dataset = Dataset(datalist)
+        dataset = self.DATASET_CLASS(datalist)
         return DataLoader(dataset, batch_size=self.conf.batch_size, shuffle=True)
 
     def load_or_generate(self, mode='train'):

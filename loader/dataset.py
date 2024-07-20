@@ -24,16 +24,18 @@ class Dataset(BaseDataset):
             end_index = min(start_index + batch_size, len(self.datalist))
             batch = self.datalist.loc[start_index:end_index - 1]
             max_len = batch[Map.LEN_COL].max()
-            self.datalist.loc[start_index:end_index - 1, Map.IPT_COL] = batch[Map.IPT_COL].apply(lambda x: list(x)[:max_len] + [0] * (max_len - len(x)))
+            self.datalist.loc[start_index:end_index - 1, Map.IPT_COL] = batch[Map.IPT_COL].apply(
+                lambda x: list(x)[:max_len] + [0] * (max_len - len(x)))
 
     def __getitem__(self, idx):
         # return self.datalist[idx]
         values = self.datalist.iloc[idx]
         # return {k: torch.tensor(values[k], dtype=torch.long) for k in values}
-        return {
-            Map.IPT_COL: torch.tensor(values[Map.IPT_COL], dtype=torch.long),
-            Map.LBL_COL: torch.tensor(values[Map.LBL_COL], dtype=torch.long),
-            Map.UID_COL: torch.tensor(values[Map.UID_COL], dtype=torch.long),
-            Map.IID_COL: torch.tensor(values[Map.IID_COL], dtype=torch.long),
-            Map.LEN_COL: torch.tensor(values[Map.LEN_COL], dtype=torch.long),
-        }
+        return {column: torch.tensor(values[column], dtype=torch.long) for column in self.datalist.columns}
+        # return {
+        #     Map.IPT_COL: torch.tensor(values[Map.IPT_COL], dtype=torch.long),
+        #     Map.LBL_COL: torch.tensor(values[Map.LBL_COL], dtype=torch.long),
+        #     Map.UID_COL: torch.tensor(values[Map.UID_COL], dtype=torch.long),
+        #     Map.IID_COL: torch.tensor(values[Map.IID_COL], dtype=torch.long),
+        #     Map.LEN_COL: torch.tensor(values[Map.LEN_COL], dtype=torch.long),
+        # }
