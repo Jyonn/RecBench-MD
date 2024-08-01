@@ -35,7 +35,7 @@ class Tuner:
 
         self.processors = dict()
         for data in set(self.train_data + self.valid_data):
-            self.processors[data] = load_processor(data)  # type: BaseProcessor
+            self.processors[data] = self.load_processor(data)  # type: BaseProcessor
         self.train_processors = [self.processors[data] for data in self.train_data]  # type: list[BaseProcessor]
         self.valid_processors = [self.processors[data] for data in self.valid_data]  # type: list[BaseProcessor]
 
@@ -59,7 +59,7 @@ class Tuner:
         self.log_path = os.path.join(self.log_dir, f'{self.sign}.log')
         pigmento.add_log_plugin(self.log_path)
 
-        self.caller = self.load_model()  # type: BaseModel
+        self.base_model = self.caller = self.load_model()  # type: BaseModel
         self.caller.prepare_model_finetuning(self.conf, inference_mode=False)
         if self.conf.tuner:
             self.caller.load(self.conf.tuner.replace('.json', '.pt'))
@@ -73,6 +73,14 @@ class Tuner:
         )
 
         self.monitor = Monitor(patience=self.conf.patience)
+
+    @staticmethod
+    def load_processor(data):
+        return load_processor(data)
+
+    @property
+    def test_command(self):
+        return f'python worker.py --model {self.model} --tuner {self.sign} --data <data_name>'
 
     def get_meta(self):
         conf = copy.deepcopy(Obj.raw(self.conf))
@@ -231,7 +239,7 @@ class Tuner:
                     action = self.evaluate(valid_dls, epoch)
                     if action is self.monitor.STOP:
                         pnt('early stopping')
-                        pnt(f'please evaluate the model by: python worker.py --model {self.model} --tuner {self.sign} --data <data_name>')
+                        pnt(f'please evaluate the model by: {self.test_command}')
                         return
 
     def run(self):

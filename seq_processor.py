@@ -4,7 +4,7 @@ from tqdm import tqdm
 
 from utils.config_init import ConfigInit
 from utils.data import get_data_dir
-from utils.function import load_processor
+from utils.function import load_seq_processor
 
 
 if __name__ == '__main__':
@@ -25,29 +25,22 @@ if __name__ == '__main__':
 
     data = configuration.data.lower()
     data_dir = get_data_dir(data)
-    processor = load_processor(data, data_dir=data_dir)
+    processor = load_seq_processor(data, data_dir=data_dir)
     processor.load()
-
-    # interactions.filter(lambda x: x[self.CLK_COL].nunique() == 2)
-    groups = processor.interactions.groupby(processor.UID_COL)
-    groups = groups.filter(lambda x: x[processor.LBL_COL].nunique() < 2)
-    print(groups)
 
     count = 0
 
-    for uid, iid, history, candidate, click in processor.generate(
+    for uid, history in processor.generate(
             slicer=configuration.slicer,
             source=configuration.source
     ):
-        # print(uid, iid, history, candidate, click)
-        print(f'User: {uid}, Item: {iid}, History, Click: {click}')
+        print(f'User: {uid}')
         print(f'History:')
         for i, h in enumerate(history):
             print(f'\t{i:2d}: {h}')
-        print(f'Candidate: {candidate}')
 
         count += 1
-        if count > 10:
+        if count > 3:
             break
 
     if processor.test_set_required:

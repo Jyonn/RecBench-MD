@@ -48,3 +48,7 @@ class Llama2Model(LlamaModel):
 
 class Llama3Model(LlamaModel):
     KEY = 'meta-llama/Meta-Llama-3-8B'
+
+
+class Llama31Model(LlamaModel):
+    KEY = 'meta-llama/Meta-Llama-3.1-8B'

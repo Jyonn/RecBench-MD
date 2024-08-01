@@ -1,9 +1,10 @@
 from typing import Optional, cast
 
 import torch
+from pigmento import pnt
 from torch import nn
 
-from loader.dense_code_map import DenseCodeMap as Map
+from loader.code_map import CodeMap as Map
 from loader.token_vocab import TV
 from model.base_model import BaseModel
 
@@ -73,14 +74,64 @@ class BaseDenseCodeModel(BaseModel):
         self.embedding_layer: Optional[DenseCodeEmbeddingLayer] = None
         self.embedding_dim = self.get_token_embeddings().weight.shape[1]
 
+        self.load_path = None
+
+    def save(self, path):
+        # torch.save(self.model.state_dict(), path)
+        module = self.model
+        if self.is_parallel:
+            module = self.model.module
+        if self.use_lora:
+            # only save lora parameters
+            state_dict = dict()
+            for k, v in module.state_dict().items():
+                if 'lora' in k:
+                    state_dict[k] = v
+        else:
+            state_dict = module.state_dict()
+        embedding_layer = self.embedding_layer.state_dict()
+        state_dict = dict(
+            model=state_dict,
+            embedding_layer=embedding_layer,
+        )
+
+        torch.save(state_dict, path)
+
+    def load(self, path):
+        self.load_path = path
+
+        pnt(f'loading finetuned model from {path}')
+        state_dict = torch.load(path, map_location='cpu')
+
+        state_dict = state_dict['model']
+        state_dict_ = dict()
+        assert self.is_parallel is False  # it can be true after loading
+        for k in state_dict:
+            if k.startswith('module.'):
+                state_dict_[k[7:]] = state_dict[k]
+            else:
+                state_dict_[k] = state_dict[k]
+        self.model.load_state_dict(state_dict_, strict=False)
+
+    def load_from_gist(self, path):
+        pnt(f'loading gist model from {path}')
+        state_dict = torch.load(path, map_location='cpu')
+        assert self.is_parallel is False  # it can be true after loading
+
+        self.model.load_state_dict(state_dict['encoder'], strict=False)
+
     def post_init(self):
         super().post_init()
-
         self.embedding_layer = DenseCodeEmbeddingLayer(
             llm_embeddings=self.get_token_embeddings(),
             device=self.device,
         )
         self.embedding_layer.to(self.device)
+
+        if self.load_path:
+            state_dict = torch.load(self.load_path, map_location='cpu')
+            embedding_layer = state_dict['embedding_layer']
+            self.embedding_layer.load_state_dict(embedding_layer)
 
     def set_cod_embeddings(self, cod_embeddings):
         return self.embedding_layer.set_cod_embeddings(cod_embeddings)
@@ -89,9 +140,9 @@ class BaseDenseCodeModel(BaseModel):
         return self.model.get_input_embeddings()
 
     def _get_scores(self, batch):
-        output = self.embedding_layer(batch)
-        input_embeddings = output['input_embeddings']
-        attention_mask = output['attention_mask']
+        embeddings = self.embedding_layer(batch)
+        input_embeddings = embeddings['input_embeddings']
+        attention_mask = embeddings['attention_mask']
 
         logits = self.model(inputs_embeds=input_embeddings, attention_mask=attention_mask).logits  # [B, L, V]
         indices = (batch[Map.LEN_COL] - 1).view(-1, 1, 1).expand(-1, 1, logits.size(-1)).to(self.device)

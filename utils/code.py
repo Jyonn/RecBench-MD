@@ -61,6 +61,4 @@ def get_code_indices(code_path):
         for i, code in enumerate(codes):
             indices[iid][i] = global_indexer(i, code)
 
-    print('load codes')
-    print(num_codes, max_code_index)
-    return indices, sum(num_codes)
+    return indices, num_codes, sum(num_codes)

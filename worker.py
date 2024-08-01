@@ -17,7 +17,7 @@ from service.gpt_service import GPT4Service, GPT35Service
 from utils.auth import GPT_KEY, CLAUDE_KEY, GEMINI_KEY
 from utils.config_init import ConfigInit
 from utils.export import Exporter
-from utils.function import load_processor
+from utils.function import load_processor, seeding
 from utils.gpu import GPU
 from utils.metrics import MetricPool
 from utils.tqdm_printer import TqdmPrinter
@@ -304,6 +304,8 @@ if __name__ == '__main__':
         use_instance_class=True,
         display_method_name=False
     )
+
+    seeding(2024)
 
     configuration = ConfigInit(
         required_args=['data', 'model'],

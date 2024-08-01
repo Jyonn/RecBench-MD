@@ -3,7 +3,7 @@ from typing import Optional
 import torch
 from torch import nn
 
-from loader.dense_code_map import DenseCodeMap as Map
+from loader.code_map import CodeMap as Map
 from model.base_dense_code_model import DenseCodeEmbeddingLayer, BaseDenseCodeModel
 from model.base_model import BaseModel
 

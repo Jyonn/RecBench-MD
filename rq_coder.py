@@ -32,6 +32,8 @@ if __name__ == '__main__':
         item_dict[str(index)] = item
 
     item_code = Obj.raw(configuration.rq)
+    if isinstance(item_code, str):
+        item_code = json.load(open(item_code))
     final_dict = dict()
 
     for item, codes in item_code.items():

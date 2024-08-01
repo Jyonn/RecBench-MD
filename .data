@@ -1,4 +1,4 @@
-mind = /data1/qijiong/Data/MIND
+mind = /home/qijiong/Data/MIND
 goodreads = /home/data4/qijiong/Data/Goodreads
 microlens = /home/data4/qijiong/Data/MicroLens
 movielens = /home/data4/qijiong/Data/MovieLens

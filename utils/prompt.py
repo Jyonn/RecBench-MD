@@ -8,3 +8,5 @@ SIMPLE_SYSTEM = ('You are a recommender. '
                  'Please response "YES" or "NO" to represent whether this user is interested in this item. ')
 
 SIMPLE_SUFFIX = '\nAnswer (Yes/No): '
+
+SIMPLE_SEQ_SYSTEM = 'You are a recommender. Please generate next item based on the user sequence.'

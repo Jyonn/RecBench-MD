@@ -15,4 +15,4 @@ class SentenceBertModel(BaseModel):
         self.model = SentenceTransformer(self.KEY)
 
     def embed(self, content) -> Optional[torch.Tensor]:
-        return self.model.encode(content, convert_to_tensor=True)
+        return self.model.encode(content, convert_to_tensor=True).float().cpu().detach().numpy()

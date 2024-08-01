@@ -4,15 +4,11 @@ from typing import cast
 import numpy as np
 import torch
 from UniTok import Vocab
-from pigmento import pnt
 from torch import nn
-from tqdm import tqdm
 
 from loader.code_preparer import CodePreparer
 from loader.dense_code_dataset import DenseCodeDataset
 from loader.code_map import CodeMap as Map
-from loader.preparer import Preparer
-from loader.token_vocab import TV
 from model.base_dense_code_model import BaseDenseCodeModel
 from utils.code import get_code_embeds
 

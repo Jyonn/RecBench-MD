@@ -45,9 +45,11 @@ class BaseProcessor(abc.ABC):
     MAX_INTERACTIONS_PER_USER: int = 20
     REQUIRE_STRINGIFY: bool
 
+    BASE_STORE_DIR = 'data'
+
     def __init__(self, data_dir=None):
         self.data_dir = data_dir
-        self.store_dir = os.path.join('data', self.get_name())
+        self.store_dir = os.path.join(self.BASE_STORE_DIR, self.get_name())
         os.makedirs(self.store_dir, exist_ok=True)
 
         self.meta = Meta(os.path.join(self.store_dir, 'meta.json'))

@@ -3,6 +3,8 @@ import importlib
 
 from model.base_model import BaseModel
 from process.base_processor import BaseProcessor
+from seq_model.base_seqmodel import BaseSeqModel
+from seq_process.base_seqprocessor import BaseSeqProcessor
 from service.base_service import BaseService
 
 
@@ -18,6 +20,19 @@ class ClassHub:
     @staticmethod
     def processors():
         return ClassHub(BaseProcessor, 'process', 'Processor')
+
+    @staticmethod
+    def seq_processors():
+        return ClassHub(BaseSeqProcessor, 'seq_process', 'SeqProcessor')
+
+    @staticmethod
+    def seq_models():
+        models = ClassHub(BaseSeqModel, 'seq_model', 'SeqModel')
+        class_dict = dict()
+        for k in models.class_dict:
+            class_dict[k + 'seq'] = models.class_dict[k]
+        models.class_dict = class_dict
+        return models
 
     def __init__(self, base_class, module_dir: str, module_type: str):
         """
@@ -44,7 +59,6 @@ class ClassHub:
         for file_path in file_paths:
             file_name = file_path.split('/')[-1].split('.')[0]
             module = importlib.import_module(f'{self.module_dir.replace("/", ".")}.{file_name}')
-
             for name, obj in module.__dict__.items():
                 if isinstance(obj, type) and issubclass(obj, self.base_class) and obj is not self.base_class:
                     class_list.append(obj)

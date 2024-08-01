@@ -64,3 +64,11 @@ def load_processor(dataset, data_dir=None):
     pnt(f'loading {processor.get_name()} processor')
     return processor(data_dir=data_dir)
 
+
+def load_seq_processor(dataset, data_dir=None):
+    processors = ClassHub.seq_processors()
+    if dataset not in processors:
+        raise ValueError(f'Unknown dataset: {dataset}')
+    processor = processors[dataset]
+    pnt(f'loading {processor.get_name()} processor')
+    return processor(data_dir=data_dir)

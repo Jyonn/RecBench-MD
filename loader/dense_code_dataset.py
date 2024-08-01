@@ -2,7 +2,7 @@ from pigmento import pnt
 from tqdm import tqdm
 
 from loader.dataset import Dataset
-from loader.dense_code_map import DenseCodeMap as Map
+from loader.code_map import CodeMap as Map
 
 
 class DenseCodeDataset(Dataset):

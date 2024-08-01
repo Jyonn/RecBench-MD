@@ -15,7 +15,7 @@ pytest  # for phi model
 tiktoken  # for glm model
 flash-attn  # for phi model
 sentencepiece~=0.1.99
-peft~=0.3.0
+peft
 scikit-learn~=1.1.2
 refconfig
 unitok
