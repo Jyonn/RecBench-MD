@@ -23,9 +23,6 @@ class SeqTuner(DiscreteCodeTuner):
     num_codes: int
     caller: BaseSeqModel
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
     @staticmethod
     def load_processor(data):
         return load_seq_processor(data)
@@ -58,15 +55,15 @@ class SeqTuner(DiscreteCodeTuner):
         train_dfs.append(preparer.load_or_generate(mode='train'))
         valid_dls.append(preparer.load_or_generate(mode='valid'))
 
-        cast(BaseSeqModel, self.base_model).set_code_tree(preparer.code_tree)
+        cast(BaseSeqModel, self.base_model).set_code_meta(preparer.code_tree, preparer.code_map)
 
         return train_dfs, valid_dls
 
-    def _evaluate(self, dataloader, steps, metrics):
+    def _evaluate(self, dataloader, steps, metrics, is_test=False):
         group_list, ranks_list = [], []
         item_index = 0
         for index, batch in tqdm(enumerate(dataloader), total=steps):
-            output = self.caller.decode(batch, width=self.conf.beam_width, prod_mode=self.conf.prod_mode)
+            output = self.caller.decode(batch, width=self.conf.beam_width, prod_mode=self.conf.prod_mode, easy_decode=not is_test or self.conf.easy_decode)
             if self.conf.prod_mode:
                 rank = (cast(torch.Tensor, output) + 1).tolist()  # type: list
                 batch_size = len(rank)
@@ -143,13 +140,13 @@ class SeqTuner(DiscreteCodeTuner):
         preparer.load_or_generate(mode='train')
         test_dl = preparer.load_or_generate(mode='test')
 
-        cast(BaseSeqModel, self.base_model).set_code_tree(preparer.code_tree)
+        cast(BaseSeqModel, self.base_model).set_code_meta(preparer.code_tree, preparer.code_map)
 
         total_valid_steps = self._get_steps([test_dl])
 
         self.caller.model.eval()
         with torch.no_grad():
-            results = self._evaluate(test_dl, total_valid_steps[0], metrics=self.conf.metrics.split('+'))
+            results = self._evaluate(test_dl, total_valid_steps[0], metrics=self.conf.metrics.split('+'), is_test=True)
             for metric, value in results.items():
                 pnt(f'{metric}: {value:.4f}')
 
@@ -183,6 +180,7 @@ if __name__ == '__main__':
             beam_width=20,
             prod_mode=0,
             seed=2024,
+            easy_decode=True,
             metrics='+'.join(['NDCG@1', 'NDCG@5', 'NDCG@10', 'NDCG@20', 'MRR', 'Recall@1', 'Recall@5', 'Recall@10', 'Recall@20']),
         ),
         makedirs=[]

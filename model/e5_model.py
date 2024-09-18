@@ -23,7 +23,7 @@ class E5Model(BaseModel, abc.ABC):
         self.yes_token = self.tokenizer.convert_tokens_to_ids('yes')
         self.no_token = self.tokenizer.convert_tokens_to_ids('no')
 
-    def ask(self, content) -> Optional[float]:
+    def ask(self, content, func='last') -> Optional[float]:
         raise NotImplementedError("E5 does not support ask method")
 
     def embed(self, content) -> Optional[torch.Tensor]:

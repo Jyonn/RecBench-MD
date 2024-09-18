@@ -11,10 +11,11 @@ from loader.discrete_code_preparer import DiscreteCodePreparer
 from loader.map import Map
 from model.base_discrete_code_model import BaseDiscreteCodeModel
 from model.base_model import BaseModel
+from process.base_processor import BaseProcessor
 from tuner import Tuner
 from utils.code import get_code_indices
 from utils.config_init import ConfigInit
-from utils.function import seeding
+from utils.function import seeding, load_processor, load_sero_processor
 from utils.metrics import MetricPool
 
 
@@ -23,12 +24,15 @@ class DiscreteCodeTuner(Tuner):
 
     num_codes: int
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    # def __init__(self, **kwargs):
+    #     super().__init__(**kwargs)
+    #
+    #     if not self.conf.gist:
+    #         self.caller = cast(BaseDiscreteCodeModel, self.caller)
+    #         self.caller.load_from_gist(self.conf.gist)
 
-        if self.conf.gist is not None:
-            self.caller = cast(BaseDiscreteCodeModel, self.caller)
-            self.caller.load_from_gist(self.conf.gist)
+    def load_processor(self, data):
+        return load_sero_processor(data) if self.conf.sero else load_processor(data)  # type: BaseProcessor
 
     def load_model(self):
         assert len(self.processors) == 1
@@ -100,6 +104,7 @@ if __name__ == '__main__':
         required_args=['model', 'data', 'code_path'],
         default_args=dict(
             gist=None,
+            sero=False,
             mode='train',
             slicer=-20,
             gpu=None,
@@ -117,6 +122,7 @@ if __name__ == '__main__':
             tuner=None,
             init_eval=True,
             metrics='+'.join(['GAUC', 'NDCG@1', 'NDCG@5', 'MRR', 'F1', 'Recall@1', 'Recall@5']),
+            alignment=True,
         ),
         makedirs=[]
     ).parse()

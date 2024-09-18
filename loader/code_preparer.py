@@ -40,7 +40,8 @@ class CodePreparer(Preparer):
                 Map.VOC_COL: vocab_ids,
                 Map.LBL_COL: label,
                 Map.UID_COL: uid,
-                Map.IID_COL: iid
+                Map.IID_COL: iid,
+                Map.LBW_COL: 1,
             })
 
         for data in datalist:

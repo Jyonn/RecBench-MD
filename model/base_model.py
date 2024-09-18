@@ -35,9 +35,16 @@ class BaseModel:
 
         # self.loss_fct = torch.nn.CrossEntropyLoss()
         self.loss_fct = torch.nn.BCELoss()
+        self.embed_loss_fct = torch.nn.MSELoss()
         self.code_loss_fct = torch.nn.CrossEntropyLoss()
         self.softmax = torch.nn.Softmax(dim=0)
         self.softmax_sft = torch.nn.Softmax()
+
+        # self.linear = None
+
+    @property
+    def embedding_dim(self):
+        return self.model.config.hidden_size
 
     def get_dtype(self):
         if self.BIT == 16:
@@ -47,6 +54,7 @@ class BaseModel:
         raise ValueError(f'unsupported bit: {self.BIT}')
 
     def post_init(self):
+        # self.linear = torch.nn.Linear(self.embedding_dim, self.embedding_dim, bias=False).to(self.device)
         self.model.to(self.device)
         if self.device_ids is not None:
             self.model = torch.nn.DataParallel(self.model, device_ids=self.device_ids)
@@ -124,7 +132,31 @@ class BaseModel:
         scores = self.softmax_sft(logits)  # [B, 2]
         return scores[:, 1]
 
-    def finetune(self, batch):
+    def _batch_embed(self, input_ids, length):
+        input_ids = input_ids.to(self.device)
+        length = length.to(self.device)
+        max_len = input_ids.size(-1)
+        attention_mask = torch.arange(max_len).expand(input_ids.size(0), max_len).to(self.device) < length.view(-1, 1)
+        hidden_states = self.model(input_ids, attention_mask=attention_mask, output_hidden_states=True).hidden_states[-1]  # [B, L, D]
+        indices = (length - 1).view(-1, 1, 1).expand(-1, 1, hidden_states.size(-1)).to(self.device)
+        embeddings = torch.gather(hidden_states, 1, indices).squeeze(1)  # [B, D]
+        # return self.linear(embeddings)
+        return embeddings
+
+    def finetune_embed(self, batch):
+        user_embedding = self._batch_embed(input_ids=batch[Map.UIP_COL], length=batch[Map.UIL_COL])  # [B, D]
+        item_embedding = self._batch_embed(input_ids=batch[Map.IIP_COL], length=batch[Map.IIL_COL])  # [B, D]
+        # similarity = torch.cosine_similarity(user_embedding, item_embedding, dim=-1)  # [B]
+        similarity = torch.einsum('bd,bd->b', user_embedding, item_embedding)  # [B]
+        return self.embed_loss_fct(similarity, batch[Map.LBL_COL].to(self.device).float())
+
+    def evaluate_embed(self, batch):
+        user_embedding = self._batch_embed(input_ids=batch[Map.UIP_COL], length=batch[Map.UIL_COL])  # [B, D]
+        item_embedding = self._batch_embed(input_ids=batch[Map.IIP_COL], length=batch[Map.IIL_COL])  # [B, D]
+        similarity = torch.cosine_similarity(user_embedding, item_embedding, dim=-1)  # [B]
+        return similarity.detach().cpu().tolist()
+
+    def finetune(self, batch, **kwargs):
         scores = self._get_scores(batch)
         return self.loss_fct(scores.float(), batch[Map.LBL_COL].to(self.device).float())
 
@@ -152,7 +184,8 @@ class BaseModel:
         yes_prob, _ = self.softmax(torch.tensor([yes_score, no_score])).tolist()
         return yes_prob
 
-    def embed(self, content) -> Optional[torch.Tensor]:
+    def embed(self, content, func='last') -> Optional[torch.Tensor]:
+        assert func in ['last', 'pool']
         input_ids = self.generate_input_ids(content, wrap_ask=False)
         input_ids = input_ids.to(self.device)
 
@@ -164,7 +197,10 @@ class BaseModel:
         with torch.no_grad():
             output = self.model(input_ids, output_hidden_states=True)
         # get embeddings of last token
-        embeddings = output.hidden_states[-1][0, -1, :]  # type: torch.Tensor
+        if func == 'last':
+            embeddings = output.hidden_states[-1][0, -1, :]  # type: torch.Tensor
+        else:
+            embeddings = output.hidden_states[-1][0].mean(dim=0)  # type: torch.Tensor
         embeddings = embeddings.float()
         return embeddings.cpu().detach().numpy()
 

@@ -3,14 +3,20 @@ import os
 
 import pandas as pd
 from pigmento import pnt
+from tqdm import tqdm
 
 from loader.code_preparer import CodePreparer
 from loader.discrete_code_dataset import DiscreteCodeDataset
+from loader.code_map import CodeMap as Map
+from loader.token_vocab import TV
+from model.base_discrete_code_model import BaseDiscreteCodeModel
 from utils.code import get_code_indices
 
 
 class DiscreteCodePreparer(CodePreparer):
     DATASET_CLASS = DiscreteCodeDataset
+
+    model: BaseDiscreteCodeModel
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -19,6 +25,7 @@ class DiscreteCodePreparer(CodePreparer):
         self.processor.load()
         self.code_indices = dict()
         self.code_tree = dict()
+        self.code_map = []
 
         item_indices = self.processor.items[self.processor.IID_COL]
         for item_index in item_indices:
@@ -29,6 +36,11 @@ class DiscreteCodePreparer(CodePreparer):
                 if index not in current_node:
                     current_node[index] = dict()
                 current_node = current_node[index]
+
+            for i, index in enumerate(current_indices):
+                if i == len(self.code_map):
+                    self.code_map.append(set())
+                self.code_map[i].add(index)
 
         self.test_datapath = os.path.join(self.store_dir, 'test.parquet')
         self.test_has_generated = os.path.exists(self.test_datapath)
@@ -65,3 +77,41 @@ class DiscreteCodePreparer(CodePreparer):
                 return self._pack_datalist(test_datalist)
 
         return super().load_or_generate(mode)
+
+    def generate_item_alignment_data(self):
+        prefix, item_ = self.model.get_item_alignment_tokens()
+
+        datalist = []
+        max_sequence_len = 0
+
+        for _, item in tqdm(self.processor.items.iterrows()):
+            content = self.processor.organize_item(item, item_attrs=self.processor.default_attrs, item_self=True)
+            content = self.model.generate_simple_input_ids(content)
+            content = content[:self.model.max_len // 5]
+
+            code = self.code_indices[item[self.processor.IID_COL]]
+
+            input_ids = prefix + content + item_
+            vocab_ids = [TV.LLM] * len(input_ids) + [TV.COD] * len(code)
+            input_ids += code
+
+            max_sequence_len = max(max_sequence_len, len(input_ids))
+            datalist.append({
+                Map.IPT_COL: input_ids,
+                Map.VOC_COL: vocab_ids,
+                Map.LBL_COL: 0,
+                Map.UID_COL: -1,
+                Map.IID_COL: item[self.processor.IID_COL],
+                Map.LBW_COL: 0,
+            })
+
+        for data in datalist:
+            data[Map.LEN_COL] = len(data[Map.IPT_COL])
+            data[Map.IPT_COL] = data[Map.IPT_COL] + [0] * (max_sequence_len - data[Map.LEN_COL])
+            data[Map.VOC_COL] = data[Map.VOC_COL] + [0] * (max_sequence_len - data[Map.LEN_COL])
+            data[Map.UID_COL] = self.uid_vocab.append(data[Map.UID_COL])
+            data[Map.IID_COL] = self.iid_vocab.append(data[Map.IID_COL])
+
+        pnt(f'{self.processor.get_name()} dataset: additional item alignment data max_sequence_len: {max_sequence_len}')
+
+        return pd.DataFrame(datalist)

@@ -23,9 +23,11 @@ class BaseSeqModel(BaseDiscreteCodeModel):
         print(self.code_list)
 
         self.code_tree = None
+        self.code_map = None
 
-    def set_code_tree(self, code_tree):
+    def set_code_meta(self, code_tree, code_map):
         self.code_tree = code_tree
+        self.code_map = code_map
 
     def _get_logits(self, batch):
         embeddings = self.embedding_layer(batch)
@@ -42,7 +44,7 @@ class BaseSeqModel(BaseDiscreteCodeModel):
 
         return embeddings, self.embedding_layer.classify(states)  # [B, L, C]
 
-    def finetune(self, batch):
+    def finetune(self, batch, **kwargs):
         output, logits = self._get_logits(batch)
         cod_input = output['cod_input']  # [B, L]
         cod_mask = output['cod_mask']  # [B, L]
@@ -62,7 +64,10 @@ class BaseSeqModel(BaseDiscreteCodeModel):
         b = tensor.size(0)
         return tensor.repeat(width, 1).view(b * width, *tensor.shape[1:])
 
-    def decode(self, batch, width=3, prod_mode=True):
+    def decode(self, batch, width=3, prod_mode=True, easy_decode=True):
+        # easy_decode: use code map
+        # hard_decode: use code tree
+
         batch_size_ = batch_size = batch[Map.LEN_COL].size(0)
         batch[Map.BTH_COL] = torch.arange(batch_size)
 
@@ -98,10 +103,13 @@ class BaseSeqModel(BaseDiscreteCodeModel):
             # # select top k indices
             # _, indices = scores.topk(width, dim=-1)  # [B, K]
             # # get scores of top k indices
-            # scores = scores[torch.arange(batch_size).unsqueeze(-1), indices]  # [B, K]
-            valid_indices = self.code_list[i].stop - self.code_list[i].start
-            indices = scores.argsort(dim=-1, descending=True)[:, :valid_indices]  # [B, C]
-            scores = scores[torch.arange(batch_size).unsqueeze(-1), indices]  # [B, C]
+            if easy_decode:
+                indices = scores.argsort(dim=-1, descending=True)[:, :width]  # [B, K]
+                scores = scores[torch.arange(batch_size).unsqueeze(-1), indices]  # [B, K]
+            else:
+                valid_indices = self.code_list[i].stop - self.code_list[i].start
+                indices = scores.argsort(dim=-1, descending=True)[:, :valid_indices]  # [B, C]
+                scores = scores[torch.arange(batch_size).unsqueeze(-1), indices]  # [B, C]
 
             current_beams = [[] for _ in range(batch_size_)]
             input_ids = batch[Map.IPT_COL].to(self.device)  # [B, L]
@@ -119,16 +127,22 @@ class BaseSeqModel(BaseDiscreteCodeModel):
 
                     current_num = 0
                     current_path = last_beam[k][1]
-                    current_node = self.code_tree
-                    for index in current_path:
-                        current_node = current_node[index]
-                    current_node_set = set(current_node.keys())
+                    if easy_decode:
+                        # current_node_set = self.code_map[len(current_path)]
+                        # pass
+                        current_node_set = set()
+                    else:
+                        current_node = self.code_tree
+                        for index in current_path:
+                            current_node = current_node[index]
+                        current_node_set = set(current_node.keys())
 
                     for score, index in zip(current_scores, current_indices):
                         if current_num >= width:
                             break
-                        if index.item() not in current_node_set:
-                            continue
+                        if not easy_decode:
+                            if index.item() not in current_node_set:
+                                continue
                         current_num += 1
 
                         element = (last_beam[k][0] + score.item(), last_beam[k][1] + [index.item()])

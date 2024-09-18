@@ -21,12 +21,12 @@ class Meta:
         else:
             data = json.load(open(path, 'r'))
             data = Obj(data)
-            self.compressed = data.compressed
+            self.compressed = data.fully_compressed
             self.version = data.version
 
     def save(self):
         data = {
-            'compressed': self.compressed,
+            'fully_compressed': self.compressed,
             'version': self.version,
         }
         json.dump(data, open(self.path, 'w'))
@@ -99,6 +99,7 @@ class BaseProcessor(abc.ABC):
         user_set = set(self.interactions[self.UID_COL].unique())
         old_user_size = len(self.users)
         self.users = self.users[self.users[self.UID_COL].isin(user_set)]
+        self.users = self.users.drop_duplicates(subset=[self.UID_COL])
         pnt(f'compressed users from {old_user_size} to {len(self.users)}')
 
         item_set = set(self.interactions[self.IID_COL].unique())
@@ -160,8 +161,11 @@ class BaseProcessor(abc.ABC):
         self.load_public_sets()
         return self
 
-    def organize_item(self, iid, item_attrs: list, as_dict=False):
-        item = self.items.iloc[self.item_vocab[iid]]
+    def organize_item(self, iid, item_attrs: list, as_dict=False, item_self=False):
+        if item_self:
+            item = iid
+        else:
+            item = self.items.iloc[self.item_vocab[iid]]
 
         if as_dict:
             return {attr: item[attr] or '' for attr in item_attrs}
@@ -217,6 +221,7 @@ class BaseProcessor(abc.ABC):
             source='test',
             id_only=False,
             as_dict=False,
+            filter_func=None,
     ):
         """
         generate test, finetune, or original set
@@ -225,11 +230,14 @@ class BaseProcessor(abc.ABC):
         :param source: test, finetune, or original
         :param id_only: whether to return only ids
         :param as_dict: whether to return item attributes as dict or string
+        :param filter_func: filter function to apply on the source set
         """
         if not self._loaded:
             raise RuntimeError('Datasets not loaded')
 
         source_set = self.get_source_set(source)
+        if filter_func:
+            source_set = filter_func(source_set)
         return self._iterate(source_set, slicer, item_attrs, id_only=id_only, as_dict=as_dict)
 
     def iterate(self, slicer: Union[int, Callable], item_attrs=None):

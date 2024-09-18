@@ -5,6 +5,7 @@ from model.base_model import BaseModel
 from process.base_processor import BaseProcessor
 from seq_model.base_seqmodel import BaseSeqModel
 from seq_process.base_seqprocessor import BaseSeqProcessor
+from sero.base_seroprocessor import BaseSeroProcessor
 from service.base_service import BaseService
 
 
@@ -24,6 +25,10 @@ class ClassHub:
     @staticmethod
     def seq_processors():
         return ClassHub(BaseSeqProcessor, 'seq_process', 'SeqProcessor')
+
+    @staticmethod
+    def sero_processors():
+        return ClassHub(BaseSeroProcessor, 'sero', 'SeroProcessor')
 
     @staticmethod
     def seq_models():
@@ -52,6 +57,8 @@ class ClassHub:
             name = class_.__name__.lower()
             name = name.replace(self.module_type, '')
             self.class_dict[name] = class_
+
+        # print(self.class_dict)
 
     def get_class_list(self):
         file_paths = glob.glob(f'{self.module_dir}/*_{self.module_type}.py')

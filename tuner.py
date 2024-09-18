@@ -13,6 +13,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from loader.class_hub import ClassHub
+from loader.discrete_code_preparer import DiscreteCodePreparer
 from loader.map import Map
 from loader.preparer import Preparer
 from model.base_model import BaseModel
@@ -40,7 +41,7 @@ class Tuner:
         self.valid_processors = [self.processors[data] for data in self.valid_data]  # type: list[BaseProcessor]
 
         if self.conf.tuner is not None:
-            self.conf.tuner = str(self.conf.tuner)
+            self.conf.tuner = str(self.conf.tuner).replace('@', '')
             self.conf.tuner = os.path.join('tuning', self.model, self.conf.tuner + '.json')
             self.tuner_meta = Obj(json.load(open(self.conf.tuner)))
             required_args = ['use_lora', 'lora_r', 'lora_alpha', 'lora_dropout']
@@ -74,8 +75,7 @@ class Tuner:
 
         self.monitor = Monitor(patience=self.conf.patience)
 
-    @staticmethod
-    def load_processor(data):
+    def load_processor(self, data):
         return load_processor(data)
 
     @property
@@ -204,6 +204,43 @@ class Tuner:
 
         return train_dfs, valid_dls
 
+    def alignment(self):
+        if not issubclass(self.PREPARER_CLASS, DiscreteCodePreparer):
+            return
+
+        if not self.conf.alignment:
+            return
+
+        if hasattr(self, 'alignment_train_dl') and hasattr(self, 'alignment_total_train_steps'):
+            train_dl = self.alignment_train_dl
+            total_train_steps = self.alignment_total_train_steps
+        else:
+            processor = self.train_processors[0]
+            preparer = self.PREPARER_CLASS(
+                processor=processor,
+                model=self.caller,
+                conf=self.conf
+            )
+            train_df = preparer.generate_item_alignment_data()
+            train_ds = self.PREPARER_CLASS.DATASET_CLASS(train_df)
+            train_dl = DataLoader(train_ds, batch_size=self.conf.batch_size, shuffle=True)
+            self.__setattr__('alignment_train_dl', train_dl)
+            total_train_steps = (len(train_ds) + self.conf.batch_size - 1) // self.conf.batch_size
+            self.__setattr__('alignment_total_train_steps', total_train_steps)
+
+        self.caller.model.train()
+        accumulate_step = 0
+        self.optimizer.zero_grad()
+        for index, batch in tqdm(enumerate(train_dl), total=total_train_steps):
+            loss = self.caller.finetune(batch, alignment=True)
+            loss.backward()
+
+            accumulate_step += 1
+            if accumulate_step == self.conf.acc_batch:
+                self.optimizer.step()
+                self.optimizer.zero_grad()
+                accumulate_step = 0
+
     def finetune(self):
         train_dfs, valid_dls = self.load_data()
 
@@ -223,6 +260,9 @@ class Tuner:
 
         for epoch in range(100):
             self.caller.model.train()
+
+            self.alignment()
+
             accumulate_step = 0
             self.optimizer.zero_grad()
             for index, batch in tqdm(enumerate(train_dl), total=total_train_steps):

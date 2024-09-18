@@ -58,7 +58,11 @@ class Worker:
         self.log_dir = os.path.join('export', self.data)
         if self.use_embed:
             assert not self.use_service, 'Embedding is not supported for service.'
-            self.log_dir = os.path.join('export', self.data + '_embed')
+            assert self.conf.embed_func in ['last', 'pool']
+            embed_suffix = '_embed'
+            if self.conf.embed_func == 'pool':
+                embed_suffix += '_pool'
+            self.log_dir = os.path.join('export', self.data + embed_suffix)
 
         os.makedirs(self.log_dir, exist_ok=True)
         pigmento.add_log_plugin(os.path.join(self.log_dir, f'{self.model}{self.sign}.log'))
@@ -317,6 +321,7 @@ if __name__ == '__main__':
             type='prompt',
             tuner=None,
             rerun=False,
+            embed_func='last',
         ),
         makedirs=[]
     ).parse()

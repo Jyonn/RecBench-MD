@@ -84,11 +84,18 @@ class BaseDiscreteCodeModel(BaseDenseCodeModel):
 
         return scores[:, 1], loss
 
-    def finetune(self, batch):
+    def finetune(self, batch, **kwargs):
         scores, cod_loss = self._get_scores(batch)
+        if kwargs.get('alignment'):
+            return cod_loss
         rec_loss = self.loss_fct(scores.float(), batch[Map.LBL_COL].to(self.device).float())
         return rec_loss + cod_loss
 
     def evaluate(self, batch):
         scores, cod_loss = self._get_scores(batch)  # [B, V=30522]
         return scores.detach().cpu().tolist()
+
+    def get_item_alignment_tokens(self):
+        prefix = self.generate_simple_input_ids('Please retrieve the item based on the following description: ')
+        item = self.generate_simple_input_ids('. The item is: ')
+        return prefix, item

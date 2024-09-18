@@ -48,7 +48,12 @@ class PogProcessor(NSProcessor, USPEProcessor):
                 data = line.strip().split(',')
                 uid, his = data[0], data[1:-1]  # 最后一个是outfit_id和item_id不一样
                 his = list(filter(lambda x: x in item_set, his))
-                self._user_dict[uid] = set(his)
+                his_, his_set = [], set()
+                for item in his:
+                    if item not in his_set:
+                        his_.append(item)
+                        his_set.add(item)
+                self._user_dict[uid] = his_set
                 users.append({self.UID_COL: uid, self.HIS_COL: his})
         users = pd.DataFrame(users)
 
