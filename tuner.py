@@ -2,6 +2,7 @@ import copy
 import hashlib
 import json
 import os.path
+import random
 
 import numpy as np
 import pandas as pd
@@ -232,6 +233,9 @@ class Tuner:
         accumulate_step = 0
         self.optimizer.zero_grad()
         for index, batch in tqdm(enumerate(train_dl), total=total_train_steps):
+            if random.random() * self.conf.align_step >= 1:
+                continue
+
             loss = self.caller.finetune(batch, alignment=True)
             loss.backward()
 
@@ -311,6 +315,7 @@ if __name__ == '__main__':
             patience=2,
             tuner=None,
             init_eval=True,
+            align_step=1.0,
         ),
         makedirs=[]
     ).parse()

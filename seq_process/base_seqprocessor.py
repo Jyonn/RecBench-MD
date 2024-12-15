@@ -23,7 +23,7 @@ class BaseSeqProcessor(BaseProcessor):
         item_set = set()
         old_item_size = len(self.items)
         self.users[self.HIS_COL].apply(lambda x: [item_set.add(i) for i in x])
-        self.items = self.items[self.items[self.IID_COL].isin(item_set)]
+        self.items = self.items[self.items[self.IID_COL].isin(item_set)].reset_index(drop=True)
         pnt(f'compressed items from {old_item_size} to {len(self.items)}')
 
         self.items.to_parquet(os.path.join(self.store_dir, 'items.parquet'))

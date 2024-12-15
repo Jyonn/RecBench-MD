@@ -1,5 +1,6 @@
+import os
 import sys
-from typing import Type, cast
+from typing import Type
 
 import pigmento
 import torch
@@ -17,6 +18,8 @@ from utils.code import get_code_indices
 from utils.config_init import ConfigInit
 from utils.function import seeding, load_processor, load_sero_processor
 from utils.metrics import MetricPool
+
+os.environ['TOKENIZERS_PARALLELISM'] = 'false'
 
 
 class DiscreteCodeTuner(Tuner):
@@ -115,7 +118,7 @@ if __name__ == '__main__':
             lora_r=32,
             lora_alpha=128,
             lora_dropout=0.1,
-            lr=0.00001,
+            lr=0.0001,
             acc_batch=1,
             eval_interval=0,
             patience=2,
@@ -123,6 +126,7 @@ if __name__ == '__main__':
             init_eval=True,
             metrics='+'.join(['GAUC', 'NDCG@1', 'NDCG@5', 'MRR', 'F1', 'Recall@1', 'Recall@5']),
             alignment=True,
+            align_step=1,
         ),
         makedirs=[]
     ).parse()

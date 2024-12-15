@@ -21,7 +21,7 @@ class MicroLensSeqProcessor(BaseSeqProcessor, MicroLensProcessor):
         interactions = self._stringify(interactions)
 
         users = interactions.sort_values(
-            [self.UID_COL, 'timestamp']
+            [self.UID_COL, self.DAT_COL]
         ).groupby(self.UID_COL)[self.IID_COL].apply(list).reset_index()
         users.columns = [self.UID_COL, self.HIS_COL]
 

@@ -13,6 +13,7 @@ class SentenceBertModel(BaseModel):
         super().__init__(**kwargs)
 
         self.model = SentenceTransformer(self.KEY)
+        self.model.get_sentence_embedding_dimension()
 
     def embed(self, content) -> Optional[torch.Tensor]:
         return self.model.encode(content, convert_to_tensor=True).float().cpu().detach().numpy()

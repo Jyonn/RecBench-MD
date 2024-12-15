@@ -7,8 +7,9 @@ from tqdm import tqdm
 
 from loader.class_hub import ClassHub
 from process.base_processor import BaseProcessor
+from seq_process.base_seqprocessor import BaseSeqProcessor
 from utils.config_init import ConfigInit
-from utils.function import load_processor
+from utils.function import load_processor, load_seq_processor
 from utils.gpu import GPU
 
 
@@ -24,7 +25,11 @@ class Embedder:
         else:
             self.attrs = self.conf.attrs.split('+')
 
-        self.processor = load_processor(self.data)  # type: BaseProcessor
+        if self.conf.seq:
+            self.processor = load_seq_processor(self.data)  # type: BaseSeqProcessor
+        else:
+            self.processor = load_processor(self.data)  # type: BaseProcessor
+        self.type = '.seq' if self.conf.seq else ''
         self.processor.load()
 
         self.caller = self.load_model()
@@ -33,6 +38,8 @@ class Embedder:
 
         os.makedirs(self.log_dir, exist_ok=True)
         pigmento.add_log_plugin(os.path.join(self.log_dir, f'{self.model}-embedder.log'))
+
+        self.embedding_path = os.path.join(self.log_dir, f'{self.model}-embeds{self.type}.npy')
 
     def get_device(self):
         if self.conf.gpu is None:
@@ -55,14 +62,32 @@ class Embedder:
         item_embeddings = []
         for item_id in tqdm(self.processor.item_vocab):
             item = self.processor.organize_item(item_id, item_attrs=self.attrs or self.processor.default_attrs)
-            embedding = self.caller.embed(item)
+            embedding = self.caller.embed(item or '[Empty Content]')
             item_embeddings.append(embedding)
         item_embeddings = np.array(item_embeddings)
-        np.save(os.path.join(self.log_dir, f'{self.model}-embeds.npy'), item_embeddings)
-        pnt(f'embeddings saved to {self.log_dir}/{self.model}-embeds.npy')
+        np.save(self.embedding_path, item_embeddings)
+        pnt(f'embeddings saved to {self.embedding_path}')
+
+    def pca(self):
+        pnt('performing PCA')
+        pnt('loading embeddings from', self.embedding_path)
+        embeddings = np.load(self.embedding_path)
+        embed_dim = self.conf.pca
+
+        from sklearn.decomposition import PCA
+        pca = PCA(n_components=embed_dim)
+        pca.fit(embeddings)
+        embeddings = pca.transform(embeddings)
+
+        np.save(self.embedding_path.replace('.npy', f'-pca{embed_dim}.npy'), embeddings)
 
     def run(self):
-        self.embed()
+        if self.conf.only_pca:
+            pnt('skip embedding')
+        else:
+            self.embed()
+        if self.conf.pca:
+            self.pca()
 
 
 if __name__ == '__main__':
@@ -75,6 +100,9 @@ if __name__ == '__main__':
     configuration = ConfigInit(
         required_args=['data', 'model'],
         default_args=dict(
+            pca=False,
+            only_pca=False,
+            seq=False,
             gpu=None,
             tuner=None,
             attrs=None,

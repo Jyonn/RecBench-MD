@@ -32,7 +32,8 @@ class LlamaModel(BaseModel, abc.ABC):
             self.key,
             **params,
         )
-        self.max_len = self.model.config.max_position_embeddings
+        # self.max_len = self.model.config.max_position_embeddings
+        self.max_len = 1024
 
         self.yes_token = self.tokenizer.convert_tokens_to_ids('YES')
         self.no_token = self.tokenizer.convert_tokens_to_ids('NO')

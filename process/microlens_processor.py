@@ -10,6 +10,7 @@ class MicroLensProcessor(NSProcessor, USPEProcessor):
     UID_COL = 'user'
     HIS_COL = 'history'
     LBL_COL = 'click'
+    DAT_COL = 'timestamp'
 
     POS_COUNT = 2
     NEG_RATIO = 2
@@ -42,10 +43,8 @@ class MicroLensProcessor(NSProcessor, USPEProcessor):
         self._get_user_dict_from_interactions(interactions)
 
         users = interactions.sort_values(
-            [self.UID_COL, 'timestamp']
+            [self.UID_COL, self.DAT_COL]
         ).groupby(self.UID_COL)[self.IID_COL].apply(list).reset_index()
         users.columns = [self.UID_COL, self.HIS_COL]
 
         return self._extract_pos_samples(users)
-
-        # return users

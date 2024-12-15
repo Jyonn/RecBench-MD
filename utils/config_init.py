@@ -8,16 +8,6 @@ from smartdict import DictCompiler
 from utils.function import argparse
 
 
-class PathSearcher(DictCompiler):
-    compiler = DictCompiler({})
-
-    @classmethod
-    def search(cls, d: dict, path: str):
-        cls.compiler.d = d
-        cls.compiler.circle = {}
-        return cls.compiler._get_value(path)
-
-
 class ConfigInit:
     def __init__(self, required_args, default_args, makedirs):
         self.required_args = required_args
@@ -38,9 +28,10 @@ class ConfigInit:
         config = RefConfig().add(refconfig.CType.SMART, **kwargs)
         config = config.add(refconfig.CType.RAW).parse()
 
+        config = Obj(config)
+
         for makedir in self.makedirs:
-            dir_name = PathSearcher.search(config, makedir)
+            dir_name = config[makedir]
             os.makedirs(dir_name, exist_ok=True)
 
-        config = Obj(config)
         return config

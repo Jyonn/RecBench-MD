@@ -22,7 +22,7 @@ class Transfer:
         self.processor.load()
 
         self.valid_user_set = self.processor.load_valid_user_set(valid_ratio=self.conf.valid_ratio)
-        self.export_dir = os.path.join('data', f'fuxi_{data}', 'sero' if self.conf.sero else 'normal')
+        self.export_dir = os.path.join('data', f'fuxi_{data}', f'{self.conf.valid_ratio}')
         os.makedirs(self.export_dir, exist_ok=True)
 
         if os.path.exists(os.path.join(self.export_dir, 'train.csv')) and \

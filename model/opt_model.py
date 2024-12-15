@@ -1,5 +1,6 @@
 import abc
 
+from pigmento import pnt
 from transformers import OPTForCausalLM, AutoTokenizer
 
 from utils.prompt import CHAT_SYSTEM, SIMPLE_SUFFIX
@@ -18,6 +19,7 @@ class OPTModel(BaseModel, abc.ABC):
         self.model = OPTForCausalLM.from_pretrained(self.key, torch_dtype=self.get_dtype())  # type: OPTForCausalLM
         self.tokenizer = AutoTokenizer.from_pretrained(self.key)
         self.max_len = self.model.config.max_position_embeddings
+        # self.max_len = 1024
 
         self.yes_token = self.tokenizer.convert_tokens_to_ids('YES')
         self.no_token = self.tokenizer.convert_tokens_to_ids('NO')

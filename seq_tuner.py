@@ -181,6 +181,7 @@ if __name__ == '__main__':
             prod_mode=0,
             seed=2024,
             easy_decode=True,
+            align_step=1,
             metrics='+'.join(['NDCG@1', 'NDCG@5', 'NDCG@10', 'NDCG@20', 'MRR', 'Recall@1', 'Recall@5', 'Recall@10', 'Recall@20']),
         ),
         makedirs=[]

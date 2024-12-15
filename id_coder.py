@@ -7,7 +7,7 @@ from pigmento import pnt
 from process.base_processor import BaseProcessor
 from seq_process.base_seqprocessor import BaseSeqProcessor
 from utils.config_init import ConfigInit
-from utils.function import load_seq_processor
+from utils.function import load_seq_processor, load_processor
 
 if __name__ == '__main__':
     pigmento.add_time_prefix()
@@ -20,12 +20,19 @@ if __name__ == '__main__':
         required_args=['data'],
         default_args=dict(
             slicer=-20,
+            seq=True,
             source='original',
         ),
         makedirs=[]
     ).parse()
 
-    processor = load_seq_processor(configuration.data.lower())  # type: BaseSeqProcessor
+    if configuration.seq:
+        mode = 'seq'
+        loader = load_seq_processor
+    else:
+        mode = 'ctr'
+        loader = load_processor
+    processor = loader(configuration.data.lower())  # type: BaseSeqProcessor
     processor.load()
 
     item_vocab = processor.item_vocab  # type: dict
@@ -34,4 +41,4 @@ if __name__ == '__main__':
     for item, index in item_vocab.items():
         id_code[item] = [index]
 
-    json.dump(id_code, open(f'code/{processor.get_name()}.id.code', 'w'), indent=2)
+    json.dump(id_code, open(f'code/{processor.get_name()}.{mode}.id.code', 'w'), indent=2)

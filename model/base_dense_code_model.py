@@ -72,7 +72,7 @@ class BaseDenseCodeModel(BaseModel):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.embedding_layer: Optional[DenseCodeEmbeddingLayer] = None
-        self.embedding_dim = self.get_token_embeddings().weight.shape[1]
+        self.embedding_dimension = self.get_token_embeddings().weight.shape[1]
 
         self.load_path = None
 

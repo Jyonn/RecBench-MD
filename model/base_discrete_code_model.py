@@ -25,7 +25,7 @@ class BaseDiscreteCodeModel(BaseDenseCodeModel):
     def __init__(self, num_codes, **kwargs):
         super().__init__(**kwargs)
         self.embedding_layer: Optional[DiscreteCodeEmbeddingLayer] = None
-        self.embedding_dim = self.get_token_embeddings().weight.shape[1]
+        self.embedding_dimension = self.get_token_embeddings().weight.shape[1]
         self.num_codes = num_codes
 
     def post_init(self):

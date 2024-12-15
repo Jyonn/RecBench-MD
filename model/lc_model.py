@@ -43,6 +43,11 @@ class GLM4TH9BModel(LongContextModel):
 class Mistral7BModel(LongContextModel):
     KEY = 'mistralai/Mistral-7B-Instruct-v0.3'
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        self.max_len = 1024
+
 
 class Phi3TH7BModel(LongContextModel):
     KEY = 'microsoft/Phi-3-small-8k-instruct'

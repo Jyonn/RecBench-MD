@@ -20,7 +20,7 @@ class HMProcessor(NSProcessor, USPEProcessor):
     NUM_TEST = 20_000
     NUM_FINETUNE = 100_000
 
-    REQUIRE_STRINGIFY = False
+    REQUIRE_STRINGIFY = True
 
     @property
     def default_attrs(self):
@@ -35,6 +35,8 @@ class HMProcessor(NSProcessor, USPEProcessor):
         )
 
         article = article[[self.IID_COL, "detail_desc"]]
+        article = article[article["detail_desc"].notnull()]
+        article = article.drop_duplicates(subset=self.IID_COL).reset_index(drop=True)
         return article
 
     def load_users(self) -> pd.DataFrame:

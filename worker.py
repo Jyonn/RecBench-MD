@@ -40,7 +40,7 @@ class Worker:
         self.use_service = isinstance(self.caller, BaseService)
 
         if self.conf.tuner is not None:
-            self.conf.tuner = str(self.conf.tuner)
+            self.conf.tuner = str(self.conf.tuner).replace('@', '')
             assert not self.use_service, 'Tuner is not supported for service.'
             self.sign = '@' + self.conf.tuner
             self.conf.tuner = os.path.join('tuning', self.model, self.conf.tuner + '.json')

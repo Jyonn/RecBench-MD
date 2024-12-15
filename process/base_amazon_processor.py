@@ -53,6 +53,7 @@ class AmazonProcessor(UICTProcessor):
         items['title'] = items['title'].str.replace(r'&[a-zA-Z]+;', '', regex=True)
         items['title'] = items['title'].str.replace(r'[^\w\s]', '', regex=True)
 
+        items = items.drop_duplicates(subset=self.IID_COL).reset_index(drop=True)
         return items
 
     def load_users(self) -> pd.DataFrame:
