@@ -5,7 +5,6 @@ from model.base_model import BaseModel
 from process.base_processor import BaseProcessor
 from seq_model.base_seqmodel import BaseSeqModel
 from seq_process.base_seqprocessor import BaseSeqProcessor
-from sero.base_seroprocessor import BaseSeroProcessor
 from service.base_service import BaseService
 
 
@@ -25,10 +24,6 @@ class ClassHub:
     @staticmethod
     def seq_processors():
         return ClassHub(BaseSeqProcessor, 'seq_process', 'SeqProcessor')
-
-    @staticmethod
-    def sero_processors():
-        return ClassHub(BaseSeroProcessor, 'sero', 'SeroProcessor')
 
     @staticmethod
     def seq_models():
