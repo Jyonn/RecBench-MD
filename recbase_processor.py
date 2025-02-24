@@ -4,7 +4,7 @@ import os
 from typing import cast
 
 import pandas as pd
-from UniTok import Vocab
+from unitok import Vocab
 from tqdm import tqdm
 
 from process.base_processor import BaseProcessor
@@ -56,6 +56,19 @@ if __name__ == '__main__':
                 address='Address',
                 city='City',
                 state='State',
+            )
+        ),
+        hotelrec=dict(
+            prompt='Describe a hotel:',
+            attrs=dict(
+                hotel_name='Name',
+                hotel_location='Location',
+            )
+        ),
+        steam=dict(
+            prompt='Describe a game:',
+            attrs=dict(
+                title='Title',
             )
         ),
     )

@@ -54,7 +54,7 @@ class PogProcessor(NSProcessor, USPEProcessor):
                         his_.append(item)
                         his_set.add(item)
                 self._user_dict[uid] = his_set
-                users.append({self.UID_COL: uid, self.HIS_COL: his})
+                users.append({self.UID_COL: uid, self.HIS_COL: his_})
         users = pd.DataFrame(users)
 
         return self._extract_pos_samples(users)

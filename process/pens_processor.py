@@ -32,8 +32,8 @@ class PENSProcessor(BaseProcessor):
             filepath_or_buffer=cast(str, path),
             sep='\t',
             header=0,
-            names=[self.IID_COL, 'cat', 'topic', 'title', 'body', 'entity', 'content'],
-            usecols=[self.IID_COL, 'cat', 'topic', 'title', 'body'],
+            names=[self.IID_COL, 'category', 'topic', 'title', 'body', 'entity', 'content'],
+            usecols=[self.IID_COL, 'category', 'topic', 'title', 'body'],
         )
 
     def _load_user(self, mode):

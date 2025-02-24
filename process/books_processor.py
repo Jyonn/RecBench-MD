@@ -7,3 +7,4 @@ class BooksProcessor(AmazonProcessor):
 
     def __init__(self, **kwargs):
         super().__init__(subset='Books', **kwargs)
+
