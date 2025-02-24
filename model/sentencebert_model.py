@@ -15,5 +15,9 @@ class SentenceBertModel(BaseModel):
         self.model = SentenceTransformer(self.KEY)
         self.model.get_sentence_embedding_dimension()
 
-    def embed(self, content) -> Optional[torch.Tensor]:
+    def embed(self, content, func=None, truncate=None) -> Optional[torch.Tensor]:
         return self.model.encode(content, convert_to_tensor=True).float().cpu().detach().numpy()
+
+
+class SentenceT5Model(SentenceBertModel):
+    KEY = 'sentence-transformers/sentence-t5-base'

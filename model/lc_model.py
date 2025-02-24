@@ -20,8 +20,6 @@ class LongContextModel(BaseModel, abc.ABC):
         self.tokenizer = AutoTokenizer.from_pretrained(self.key, trust_remote_code=True, token=HF_KEY)
         self.max_len = 10_000
 
-        # self.yes_token = self.tokenizer.convert_tokens_to_ids('YES')
-        # self.no_token = self.tokenizer.convert_tokens_to_ids('NO')
         self.yes_token = self.tokenizer.convert_tokens_to_ids(self.tokenizer.tokenize('YES'))[0]
         self.no_token = self.tokenizer.convert_tokens_to_ids(self.tokenizer.tokenize('NO'))[0]
 
@@ -29,15 +27,8 @@ class LongContextModel(BaseModel, abc.ABC):
         return self.tokenizer.encode(content, return_tensors='pt', add_special_tokens=False)
 
 
-class QWen2TH7BModel(LongContextModel):
-    KEY = 'Qwen/Qwen2-7B-Instruct'
-
-
 class GLM4TH9BModel(LongContextModel):
     KEY = 'THUDM/glm-4-9b-chat'
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
 
 
 class Mistral7BModel(LongContextModel):

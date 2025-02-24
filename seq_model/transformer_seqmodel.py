@@ -17,3 +17,26 @@ class TransformerSeqModel(BaseSeqModel, TransformerModel):
 
         return line, numbers, user, item, prefix
 
+
+class Transformer6LSeqModel(TransformerSeqModel):
+    N_LAYERS = 6
+
+
+class Transformer1LSeqModel(TransformerSeqModel):
+    N_LAYERS = 1
+
+
+class Transformer12LSeqModel(TransformerSeqModel):
+    N_LAYERS = 12
+
+
+class Transformer12L768DSeqModel(TransformerSeqModel):
+    N_LAYERS = 12
+    N_EMBEDDINGS = 768
+    N_HEADS = 12
+
+
+class Transformer24L2048DSeqModel(TransformerSeqModel):
+    N_LAYERS = 24
+    N_EMBEDDINGS = 2048
+    N_HEADS = 16

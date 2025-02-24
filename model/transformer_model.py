@@ -9,6 +9,9 @@ class TransformerModel(BaseModel):
     SUFFIX_PROMPT = ''
     PREFIX_PROMPT = ''
     BIT = 32
+    N_LAYERS = 3
+    N_EMBEDDINGS = 64
+    N_HEADS = 8
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -19,9 +22,9 @@ class TransformerModel(BaseModel):
         config = GPT2Config(
             vocab_size=2,
             n_positions=512,
-            n_embd=64,
-            n_layer=3,
-            n_head=8,
+            n_embd=self.N_EMBEDDINGS,
+            n_layer=self.N_LAYERS,
+            n_head=self.N_HEADS,
             n_ctx=512,
         )
         self.model = GPT2LMHeadModel(config)
