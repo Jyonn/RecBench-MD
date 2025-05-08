@@ -10,8 +10,6 @@ cd RecBench
 pip install -r requirements.txt
 ```
 
-More documentations will be available soon.
-
 ## 📊 Supported Datasets
 
 RecBench supports 15 datasets across domains like news, books, movies, music, fashion, and e-commerce:
@@ -33,12 +31,23 @@ RecBench supports 15 datasets across domains like news, books, movies, music, fa
 - ️️🍽️ Yelp: Restaurant reviews and metadata.
 
 These datasets are also become the standard benchmark datasets for the [Legommenders](https://github.com/Jyonn/Legommenders) library
+You can access the preprocessed data [here](https://drive.google.com/drive/folders/1SocYpOWOxIWm7eB-CpFmyUR3Pb_-Pt9m?usp=sharing).
+
+## A Quick Use
+
+### Zero-shot Recability for Llama-1-7B model
+
+```shell
+python worker.py --model llama1 --data mind
+```
+
+More documentations will be available soon.
 
 ## Updates
 
 - **2025-03-07**: Our first benchmark paper is posted on arXiv: [Benchmarking LLMs in Recommendation Tasks: A Comparative Evaluation with Conventional Recommenders](https://arxiv.org/abs/2503.05493).
 - **2024-12-15**: RecBench v1 library is released.
-- **2024-06-04**: Legommenders project is initiated.
+- **2024-06-04**: RecBench project is initiated.
 
 ## Citations
 
