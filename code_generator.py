@@ -35,10 +35,15 @@ if __name__ == '__main__':
         default_args=dict(
             seq=False,
             pca=False,
-            rqvae_package='../RQ-VAE'
+            rqvae_package='../RQ-VAE',
+            num_emb_list='256+256+256+256',
+            sk_epsilon='0+0+0+0.003'
         ),
         makedirs=[]
     ).parse()
+
+    sign = list(map(int, configuration.num_emb_list.split('+')))
+    sign = f'.{sign[0]}x{len(sign)}'
 
     data, model = configuration.data, configuration.model
     rqvae = configuration.rqvae_package
@@ -52,13 +57,15 @@ if __name__ == '__main__':
     if configuration.pca:
         embed_path = embed_path.replace('.npy', f'-pca{configuration.pca}.npy')
 
-    rqvae_ckpt_path = f'./ckpt/{data}.{model}{type_}'
+    rqvae_ckpt_path = f'./ckpt/{data}.{model}{sign}{type_}'
 
     pnt(f'learning code for {data} using {model} embeddings')
     return_code = run_script(
         f'python main.py '
         f'--data_path {embed_path} '
         f'--ckpt_dir {rqvae_ckpt_path} '
+        f'--num_emb_list {configuration.num_emb_list} '
+        f'--sk_epsilon {configuration.sk_epsilon} '
         f'--verbose 0',
         directory=rqvae
     )
@@ -67,9 +74,11 @@ if __name__ == '__main__':
     pnt(f'generating code for {data} using {model} embeddings')
     return_code = run_script(
         f'python generate_indices_distance.py '
-        f'--ckpt_path ./ckpt/{data}.{model}{type_}/best_collision_model.pth '
+        f'--ckpt_path ./ckpt/{data}.{model}{sign}{type_}/best_collision_model.pth '
         f'--output_dir ./ckpt '
-        f'--output_file {data}.{model}{type_}.json '
+        f'--num_emb_list {configuration.num_emb_list} '
+        f'--output_file {data}.{model}{sign}{type_}.json '
+        f'--sk_epsilon {configuration.sk_epsilon} '
         f'--verbose 0',
         directory=rqvae
     )
@@ -81,8 +90,8 @@ if __name__ == '__main__':
     run_script(
         f'python rq_coder.py '
         f'--data {data} '
-        f'--rq {rqvae}/ckpt/{data}.{model}{type_}.json '
-        f'--export ./code/{data}.{model}{type_}.code '
+        f'--rq {rqvae}/ckpt/{data}.{model}{sign}{type_}.json '
+        f'--export ./code/{data}.{model}{sign}{type_}.code '
         f'--seq {int(configuration.seq)}',
         directory='.'
     )

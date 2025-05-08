@@ -1,6 +1,5 @@
 import os
 
-import polars as pl
 import pandas as pd
 import pigmento
 from pigmento import pnt
@@ -8,7 +7,7 @@ from pigmento import pnt
 from process.base_processor import BaseProcessor
 from utils.config_init import ConfigInit
 from utils.data import get_data_dir
-from utils.function import load_sero_processor, load_processor
+from utils.function import load_processor
 
 
 class Transfer:
@@ -17,8 +16,7 @@ class Transfer:
 
         data = self.conf.data.lower()
         data_dir = get_data_dir(data)
-        load_processor_method = load_processor if not self.conf.sero else load_sero_processor
-        self.processor = load_processor_method(data, data_dir=data_dir)  # type: BaseProcessor
+        self.processor = load_processor(data, data_dir=data_dir)  # type: BaseProcessor
         self.processor.load()
 
         self.valid_user_set = self.processor.load_valid_user_set(valid_ratio=self.conf.valid_ratio)
@@ -83,7 +81,6 @@ if __name__ == '__main__':
         required_args=['data'],
         default_args=dict(
             valid_ratio=0.1,
-            sero=False,
         ),
         makedirs=[]
     ).parse()

@@ -3,7 +3,6 @@ import os
 import refconfig
 from oba import Obj
 from refconfig import RefConfig
-from smartdict import DictCompiler
 
 from utils.function import argparse
 

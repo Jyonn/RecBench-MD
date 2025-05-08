@@ -29,10 +29,12 @@ class LongContextModel(BaseModel, abc.ABC):
 
 class GLM4TH9BModel(LongContextModel):
     KEY = 'THUDM/glm-4-9b-chat'
+    NUM_LAYERS = 48
 
 
 class Mistral7BModel(LongContextModel):
     KEY = 'mistralai/Mistral-7B-Instruct-v0.3'
+    NUM_LAYERS = 32
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -51,6 +53,7 @@ class Phi3TH7BModel(LongContextModel):
 
 class Phi2TH3BModel(LongContextModel):
     KEY = 'microsoft/phi-2'
+    NUM_LAYERS = 32
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -60,6 +63,7 @@ class Phi2TH3BModel(LongContextModel):
 
 class RecGPT7BModel(LongContextModel):
     KEY = 'vinai/RecGPT-7B'
+    NUM_LAYERS = 32
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

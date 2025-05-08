@@ -3,7 +3,7 @@ from typing import cast
 
 import numpy as np
 import torch
-from UniTok import Vocab
+from unitok import Vocab
 from torch import nn
 
 from loader.code_preparer import CodePreparer
@@ -22,7 +22,7 @@ class DenseCodePreparer(CodePreparer):
         assert self.code_embeds is not None, f'code embeddings for {self.processor.get_name()} not found'
 
         self.cod_vocab = Vocab(name=Map.COD_COL)
-        if os.path.exists(self.cod_vocab.get_store_path(self.store_dir)):
+        if os.path.exists(self.cod_vocab.filepath(self.store_dir)):
             self.cod_vocab.load(self.store_dir)
 
     def tokenize_items(self, source='finetune', item_attrs=None):

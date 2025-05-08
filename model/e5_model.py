@@ -12,6 +12,7 @@ class E5Model(BaseModel, abc.ABC):
     PREFIX_PROMPT = SIMPLE_SYSTEM
     SUFFIX_PROMPT = SIMPLE_SUFFIX
     BIT = 32
+    NUM_LAYERS = 24
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

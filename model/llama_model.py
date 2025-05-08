@@ -1,6 +1,5 @@
 import abc
 
-import torch
 from transformers import LlamaForCausalLM, AutoTokenizer, AutoModelForCausalLM
 
 from utils.prompt import SIMPLE_SUFFIX, SIMPLE_SYSTEM
@@ -12,6 +11,7 @@ class LlamaModel(BaseModel, abc.ABC):
     PREFIX_PROMPT = SIMPLE_SYSTEM
     SUFFIX_PROMPT = SIMPLE_SUFFIX
     BIT = 16
+    NUM_LAYERS = 32
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

@@ -18,11 +18,10 @@ class Searcher:
         self.model = conf.model
         self.keys = dict(
             mode=conf.mode,
-            data=conf.data,
         )
-        self._keys = ['mode', 'data']
+        self._keys = ['mode']
         for key in conf:
-            if key not in ['model', 'attrs', 'mode', 'data']:
+            if key not in ['model', 'attrs', 'mode']:
                 self.keys[key] = conf[key]
                 self._keys.append(key)
 
@@ -44,7 +43,8 @@ class Searcher:
 
             try:
                 conf = json.load(open(path, 'r'))
-                _, _ = conf['mode'], conf['data']
+                if 'mode' not in conf:
+                    conf['mode'] = ''
             except:
                 continue
 
@@ -53,6 +53,7 @@ class Searcher:
                 if self.keys[key] is not None and key not in conf:
                     match = False
                     break
+
             if not match:
                 continue
 
@@ -67,9 +68,13 @@ class Searcher:
         table = PrettyTable()
         table.field_names = ['#', 'sign', 'time', *self._keys, *attrs, 'conf', 'log']
         for index, (sign, conf, create_time) in enumerate(candidates):
+
             match = True
             for key in self._keys:
-                if key not in conf or (self.keys[key] is not None and self.keys[key] not in conf[key]):
+                if key not in conf:
+                    match = False
+                    break
+                elif self.keys[key] is not None and self.keys[key] not in (conf[key] or ''):
                     match = False
                     break
             if not match:
@@ -99,14 +104,14 @@ class Searcher:
         indices = list(filter(lambda x: 0 <= x < len(candidates), indices))
         attrs = set()
         for index in indices:
-            sign, conf = candidates[index]
+            sign, conf, _ = candidates[index]
             attrs.update(conf.keys())
 
         different_attrs = []
         for attr in attrs:
             value = candidates[indices[0]][1].get(attr, None)
             for index in indices:
-                sign, conf = candidates[index]
+                sign, conf, _ = candidates[index]
                 if conf.get(attr, None) != value:
                     different_attrs.append(attr)
                     break
@@ -114,7 +119,7 @@ class Searcher:
         table = PrettyTable()
         table.field_names = ['#', 'sign', *different_attrs]
         for index in indices:
-            sign, conf = candidates[index]
+            sign, conf, _ = candidates[index]
             row = [index, sign]
             for attr in different_attrs:
                 row.append(conf.get(attr, None))
@@ -134,7 +139,6 @@ if __name__ == '__main__':
         required_args=['model'],
         default_args=dict(
             mode=None,
-            data=None,
             attrs=None,
         ),
         makedirs=[]

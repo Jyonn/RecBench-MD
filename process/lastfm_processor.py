@@ -30,6 +30,7 @@ class LastFMProcessor(USPEProcessor, NSProcessor):
     def load_items(self) -> pd.DataFrame:
         path = os.path.join(self.data_dir, 'userid-timestamp-artid-artname-traid-traname.tsv')
         items = []
+        item_set = set()
 
         with open(path, 'r') as f:
             for line in f:
@@ -37,7 +38,9 @@ class LastFMProcessor(USPEProcessor, NSProcessor):
                 user_id, date, artist_id, artist_name, track_id, track_name = data
                 if not track_id.strip():
                     continue
-                items.append([track_id, track_name, artist_name])
+                if track_name not in item_set:
+                    item_set.add(track_name)
+                    items.append([track_id, track_name, artist_name])
 
         return pd.DataFrame(items, columns=[self.IID_COL, 'track_name', 'artist_name'])
 

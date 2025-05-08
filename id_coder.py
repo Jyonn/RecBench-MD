@@ -1,10 +1,8 @@
 import json
 
 import pigmento
-from UniTok import Vocab
 from pigmento import pnt
 
-from process.base_processor import BaseProcessor
 from seq_process.base_seqprocessor import BaseSeqProcessor
 from utils.config_init import ConfigInit
 from utils.function import load_seq_processor, load_processor

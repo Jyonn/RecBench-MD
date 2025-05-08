@@ -14,13 +14,14 @@ from service.base_service import BaseService
 from service.claude_service import Claude21Service, Claude3Service
 from service.gemini_service import GeminiService
 from service.gpt_service import GPT4Service, GPT35Service
+from utils import bars
 from utils.auth import GPT_KEY, CLAUDE_KEY, GEMINI_KEY
 from utils.config_init import ConfigInit
 from utils.export import Exporter
 from utils.function import load_processor, seeding
 from utils.gpu import GPU
 from utils.metrics import MetricPool
-from utils.tqdm_printer import TqdmPrinter
+from utils.timer import Timer, StatusTimer
 
 
 class Worker:
@@ -49,8 +50,9 @@ class Worker:
             required_args = ['use_lora', 'lora_r', 'lora_alpha', 'lora_dropout']
             for arg in required_args:
                 assert arg in self.tuner_meta, f'{arg} is required in tuner configuration'
+            tune_from = self.tuner_meta['tune_from'] or 0
             self.caller = cast(BaseModel, self.caller)
-            self.caller.prepare_model_finetuning(self.tuner_meta, inference_mode=True)
+            self.caller.prepare_model_finetuning(self.tuner_meta, inference_mode=False, tune_from=tune_from)
             self.caller.load(self.conf.tuner.replace('.json', '.pt'))
         else:
             self.sign = ''
@@ -70,6 +72,8 @@ class Worker:
 
         if self.conf.rerun:
             self.exporter.reset()
+
+        self.latency_timer = Timer(activate=False)
 
     def get_device(self):
         if self.conf.gpu is None:
@@ -101,17 +105,16 @@ class Worker:
     def test_prompt(self):
         input_template = """User behavior sequence: \n{0}\nCandidate item: {1}"""
 
-        # progress = self.exporter.load_progress()
-        # if progress > 0:
-        #     pnt(f'directly start from {progress}')
         progress = 0
-        if self.exporter.exist():
+        if self.exporter.exist() and not self.conf.latency:
             responses = self.exporter.read(to_float=False)
             progress = len(responses)
             pnt(f'directly start from {progress}')
 
-        TqdmPrinter.activate()
-        for index, data in enumerate(self.processor.generate(slicer=self.conf.slicer, source=self.conf.source)):
+        for index, data in enumerate(bar := bars.TestBar()(self.processor.generate(
+            slicer=self.conf.slicer,
+            source=self.conf.source
+        ), total=len(self.processor.get_source_set(self.conf.source)))):
             if index < progress:
                 continue
 
@@ -119,6 +122,7 @@ class Worker:
 
             response: Optional[str, float] = None
 
+            self.latency_timer.run('test')
             for _ in range(5):
                 for i in range(len(history)):
                     _history = [f'({j + 1}) {history[i + j]}' for j in range(len(history) - i)]
@@ -140,14 +144,19 @@ class Worker:
                 # self.exporter.save_progress(index)
                 exit(0)
 
+            self.latency_timer.run('test')
+
             if self.use_service:
                 response = response.replace('\n', '').replace('\r', '')
             else:
                 response = f'{response:.4f}'
-            pnt(f'click: {click}, response: {response}', current=index + 1, count=len(self.processor.test_set))
-            self.exporter.write(response)
+            # pnt(f'click: {click}, response: {response}', current=index + 1, count=len(self.processor.test_set))
+            bar.set_postfix_str(f'click: {click}, response: {response}')
+
+            if not self.conf.latency:
+                self.exporter.write(response)
             # self.exporter.save_progress(index + 1)
-        TqdmPrinter.deactivate()
+        # TqdmPrinter.deactivate()
 
     def test_embed(self):
         history_template = """User behavior sequence: \n{0}"""
@@ -165,12 +174,12 @@ class Worker:
         item_dict = self.exporter.load_embed('item')
         user_dict = self.exporter.load_embed('user')
 
-        TqdmPrinter.activate()
-        for index, data in enumerate(self.processor.generate(
+        # TqdmPrinter.activate()
+        for index, data in enumerate(bar := bars.TestBar()(self.processor.generate(
                 slicer=self.conf.slicer,
                 source=self.conf.source,
                 as_dict=self.caller.AS_DICT
-        )):
+        ), total=len(self.processor.get_source_set(self.conf.source)))):
             if index < progress:
                 continue
 
@@ -183,12 +192,6 @@ class Worker:
                 if self.caller.AS_DICT:
                     user_embed = self.caller.embed(history)
                 else:
-                    # for i in range(len(history)):
-                    #     _history = [f'({j + 1}) {history[i + j]}' for j in range(len(history) - i)]
-                    #     history_sequence = history_template.format('\n'.join(_history))
-                    #     user_embed = self.caller.embed(history_sequence)
-                    #     if user_embed is not None:
-                    #         break
                     for _ in range(5):
                         for i in range(len(history)):
                             _history = [f'({j + 1}) {history[i + j]}' for j in range(len(history) - i)]
@@ -236,11 +239,10 @@ class Worker:
             th_item_embed = torch.tensor(item_embed)
             th_user_embed = torch.tensor(user_embed)
 
-            score = float(torch.cosine_similarity(th_item_embed, th_user_embed, dim=0))
-            pnt(f'click: {click}, score: {score:.4f}', current=index + 1, count=len(self.processor.test_set))
+            # dot similarity
+            score = torch.dot(th_item_embed, th_user_embed).item()
+            bar.set_postfix_str(f'click: {click}, score: {score:.4f}')
             self.exporter.write(score)
-            # self.exporter.save_progress(index + 1)
-        TqdmPrinter.deactivate()
 
     def evaluate(self):
         scores = self.exporter.read(from_convert=self.use_service)  # type: List[float]
@@ -289,7 +291,20 @@ class Worker:
         pnt(f'rule 1: {rule_counts[0]}, rule 2: {rule_counts[1]}, rule 3: {rule_counts[2]}')
         self.exporter.save_convert(scores)
 
+    def latency(self):
+        self.latency_timer.activate()
+        self.latency_timer.clear()
+        try:
+            self.test_prompt()
+        except KeyboardInterrupt:
+            st = self.latency_timer.status_dict["test"]  # type: StatusTimer
+            pnt(f'Total {st.count} steps, avg ms {st.avgms():.4f}')
+
     def run(self):
+        if self.conf.latency:
+            self.latency()
+            return
+
         if self.use_prompt:
             self.test_prompt()
         else:
@@ -303,7 +318,6 @@ if __name__ == '__main__':
     # os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
     pigmento.add_time_prefix()
-    pnt.set_basic_printer(TqdmPrinter())
     pnt.set_display_mode(
         use_instance_class=True,
         display_method_name=False
@@ -322,6 +336,7 @@ if __name__ == '__main__':
             tuner=None,
             rerun=False,
             embed_func='last',
+            latency=False,
         ),
         makedirs=[]
     ).parse()

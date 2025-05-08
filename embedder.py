@@ -6,6 +6,7 @@ from pigmento import pnt
 from tqdm import tqdm
 
 from loader.class_hub import ClassHub
+from model.base_model import BaseModel
 from process.base_processor import BaseProcessor
 from seq_process.base_seqprocessor import BaseSeqProcessor
 from utils.config_init import ConfigInit
@@ -50,7 +51,7 @@ class Embedder:
         pnt(f'manually choosing {self.conf.gpu}-th GPU')
         return f'cuda:{self.conf.gpu}'
 
-    def load_model(self):
+    def load_model(self) -> BaseModel:
         models = ClassHub.models()
         if self.model in models:
             model = models[self.model]
@@ -62,7 +63,7 @@ class Embedder:
         item_embeddings = []
         for item_id in tqdm(self.processor.item_vocab):
             item = self.processor.organize_item(item_id, item_attrs=self.attrs or self.processor.default_attrs)
-            embedding = self.caller.embed(item or '[Empty Content]')
+            embedding = self.caller.embed(item or '[Empty Content]', truncate=True)
             item_embeddings.append(embedding)
         item_embeddings = np.array(item_embeddings)
         np.save(self.embedding_path, item_embeddings)
@@ -106,6 +107,7 @@ if __name__ == '__main__':
             gpu=None,
             tuner=None,
             attrs=None,
+            dim=None,
         ),
         makedirs=[]
     ).parse()

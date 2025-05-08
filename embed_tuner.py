@@ -54,14 +54,22 @@ class EmbedTuner(Tuner):
         metric_value = np.mean(metric_values).item()
         pnt(f'(epoch {epoch}) validation on all datasets with {metric_name}: {metric_value:.4f}')
 
+        if epoch is None:
+            return
+
         action = self.monitor.push(metric_name, metric_value)
         if action is self.monitor.BEST:
             self.caller.save(os.path.join(self.log_dir, f'{self.sign}.pt'))
             pnt(f'saving best model to {self.log_dir}/{self.sign}.pt')
-        # elif action is self.monitor.STOP:
-        #     pnt('early stopping')
-        #     break
         return action
+
+    def test(self):
+        test_dls = self.load_test_data()
+        self.evaluate(test_dls, epoch=None)
+
+    def dev(self):
+        _, valid_dls = self.load_data()
+        self.evaluate(valid_dls, epoch=None)
 
     def finetune(self):
         train_dfs, valid_dls = self.load_data()
@@ -69,6 +77,7 @@ class EmbedTuner(Tuner):
         train_dfs = pd.concat(train_dfs)
         train_ds = self.PREPARER_CLASS.DATASET_CLASS(train_dfs)
         train_ds.align(batch_size=self.conf.batch_size, ascending=False)
+
         train_dl = DataLoader(train_ds, batch_size=self.conf.batch_size, shuffle=False)
 
         total_train_steps = (len(train_ds) + self.conf.batch_size - 1) // self.conf.batch_size
@@ -80,7 +89,8 @@ class EmbedTuner(Tuner):
         if self.conf.init_eval:
             self.evaluate(valid_dls, -1)
 
-        for epoch in range(100):
+        epoch = 0
+        while True:
             self.caller.model.train()
 
             self.alignment()
@@ -104,6 +114,7 @@ class EmbedTuner(Tuner):
                         pnt(f'please evaluate the model by: {self.test_command}')
                         return
 
+            epoch += 1
 
 if __name__ == '__main__':
     pigmento.add_time_prefix()
@@ -115,6 +126,8 @@ if __name__ == '__main__':
     configuration = ConfigInit(
         required_args=['model', 'train', 'valid'],
         default_args=dict(
+            type='embed_tuner',
+            mode='finetune',
             slicer=-20,
             gpu=None,
             valid_metric='GAUC',
@@ -129,7 +142,7 @@ if __name__ == '__main__':
             eval_interval=0,
             patience=2,
             tuner=None,
-            init_eval=True,
+            init_eval=False,
         ),
         makedirs=[]
     ).parse()

@@ -13,8 +13,8 @@ class PogProcessor(NSProcessor, USPEProcessor):
     HIS_COL = 'history'
     LBL_COL = 'click'
 
-    POS_COUNT = 2
-    NEG_RATIO = 2
+    POS_COUNT = 1
+    NEG_RATIO = 100
 
     NUM_TEST = 0
     NUM_FINETUNE = 100_000

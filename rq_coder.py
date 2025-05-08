@@ -52,9 +52,29 @@ if __name__ == '__main__':
     for item, codes in item_code.items():
         _codes = []
         for code in codes:
-            code = code.split('_')[1]
-            code = int(code[:-1])
+            if isinstance(code, str) and '_' in code:
+                code = code.split('_')[1]
+                code = int(code[:-1])
+            else:
+                code = int(code)
             _codes.append(code)
         final_dict[item_dict[int(item)]] = _codes
+
+    collapsed_dict = dict()
+
+    for item, codes in final_dict.items():
+        code_tuple = tuple(codes)
+        if code_tuple not in collapsed_dict:
+            collapsed_dict[code_tuple] = -1
+        else:
+            collapsed_dict[code_tuple] = 0
+
+    # for item, codes in final_dict.items():
+    #     code_tuple = tuple(codes)
+    #     if collapsed_dict[code_tuple] > -1:
+    #         codes.append(collapsed_dict[code_tuple])
+    #         collapsed_dict[code_tuple] += 1
+
+    # print('max collapsed:', max(collapsed_dict.values()))
 
     json.dump(final_dict, open(configuration.export, 'w'), indent=2)

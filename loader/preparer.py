@@ -2,7 +2,8 @@ import os.path
 from typing import Optional
 
 import pandas as pd
-from UniTok import Vocab
+from unitok import Vocab, Space
+from UniTokv3 import Vocab as VocabV3
 from pigmento import pnt
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -27,13 +28,24 @@ class Preparer:
             self.get_secondary_signature(),
         )
         os.makedirs(self.store_dir, exist_ok=True)
-        self.iid_vocab = Vocab(name=Map.IID_COL)
-        self.uid_vocab = Vocab(name=Map.UID_COL)
+        Space.push(self)
+
+        if os.path.exists(os.path.join(self.store_dir, f'tok.{Map.IID_COL}.dat')):
+            self.iid_vocab = VocabV3(name=Map.IID_COL)
+            self.uid_vocab = VocabV3(name=Map.UID_COL)
+        else:
+            self.iid_vocab = Vocab(name=Map.IID_COL)
+            self.uid_vocab = Vocab(name=Map.UID_COL)
+        Space.pop(self)
 
         self.train_datapath = os.path.join(self.store_dir, 'train.parquet')
         self.valid_datapath = os.path.join(self.store_dir, 'valid.parquet')
+        self.test_datapath = os.path.join(self.store_dir, 'test.parquet')
 
-        self.has_generated = os.path.exists(self.train_datapath) and os.path.exists(self.valid_datapath)
+        self.has_generated = (
+            (os.path.exists(self.train_datapath) and os.path.exists(self.valid_datapath) or not self.processor.NUM_FINETUNE) and
+            (os.path.exists(self.test_datapath) or not self.processor.NUM_TEST)
+        )
 
     def get_primary_signature(self):
         return f'{self.processor.get_name()}_{self.model.get_name()}'
@@ -52,8 +64,8 @@ class Preparer:
             item_dict[iid] = item_ids[:self.model.max_len // 5]
         return item_dict
 
-    def load_datalist(self):
-        items = self.tokenize_items()
+    def load_datalist(self, source='finetune'):
+        items = self.tokenize_items(source=source)
         line, numbers, user, item, prefix, suffix = self.model.get_special_tokens()
 
         datalist = []
@@ -61,8 +73,8 @@ class Preparer:
         max_sequence_len = 0
         pnt(f'preprocessing on the {self.processor.get_name()} dataset')
         for index, data in tqdm(
-                enumerate(self.processor.generate(slicer=self.conf.slicer, source='finetune', id_only=True)),
-                total=len(self.processor.get_source_set(source='finetune'))
+                enumerate(self.processor.generate(slicer=self.conf.slicer, source=source, id_only=True)),
+                total=len(self.processor.get_source_set(source=source))
         ):
             uid, iid, history, label = data
 
@@ -124,7 +136,7 @@ class Preparer:
         return DataLoader(dataset, batch_size=self.conf.batch_size, shuffle=True)
 
     def load_or_generate(self, mode='train'):
-        assert mode in ['train', 'valid'], f'unknown mode: {mode}'
+        assert mode in ['train', 'valid', 'test'], f'unknown mode: {mode}'
 
         if self.has_generated:
             pnt(f'loading prepared {mode} data on {self.processor.get_name()} dataset')
@@ -134,20 +146,32 @@ class Preparer:
 
             if mode == 'train':
                 return pd.read_parquet(self.train_datapath)
-            return self._pack_datalist(pd.read_parquet(self.valid_datapath))
+            if mode == 'valid':
+                return self._pack_datalist(pd.read_parquet(self.valid_datapath))
+            return self._pack_datalist(pd.read_parquet(self.test_datapath))
 
-        datalist = self.load_datalist()
-        train_datalist, valid_datalist = self.split_datalist(datalist)
+        if self.processor.finetune_set is not None:
+            datalist = self.load_datalist(source='finetune')
+            train_datalist, valid_datalist = self.split_datalist(datalist)
+            train_datalist = pd.DataFrame(train_datalist)
+            valid_datalist = pd.DataFrame(valid_datalist)
 
-        train_datalist = pd.DataFrame(train_datalist)
-        valid_datalist = pd.DataFrame(valid_datalist)
+            train_datalist.to_parquet(self.train_datapath)
+            valid_datalist.to_parquet(self.valid_datapath)
+        else:
+            train_datalist = valid_datalist = None
+
+        if self.processor.test_set is not None:
+            test_datalist = pd.DataFrame(self.load_datalist(source='test'))
+            test_datalist.to_parquet(self.test_datapath)
+        else:
+            test_datalist = None
 
         self.iid_vocab.save(self.store_dir)
         self.uid_vocab.save(self.store_dir)
 
-        train_datalist.to_parquet(self.train_datapath)
-        valid_datalist.to_parquet(self.valid_datapath)
-
         if mode == 'train':
             return train_datalist
-        return self._pack_datalist(valid_datalist)
+        if mode == 'valid':
+            return self._pack_datalist(valid_datalist)
+        return self._pack_datalist(test_datalist)

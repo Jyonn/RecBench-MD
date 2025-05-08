@@ -93,11 +93,13 @@ class NDCG(SeqMetric):
         self.n = n
 
     def _calculate(self, rank: int):
-        if rank < 0:
+        if self.prod_mode:
+            if rank < 1:
+                return 0
+            return 1.0 / np.log2(rank + 1)
+        if rank < 1 or rank > self.n:
             return 0
-        dcg = 1.0 / np.log2(rank + 1)
-        idcg = 1.0 / np.log2(self.n + 1)
-        return dcg / idcg
+        return 1.0 / np.log2(rank + 1)
 
     def __str__(self):
         return f'{self.name}@{self.n}'

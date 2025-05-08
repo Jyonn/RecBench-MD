@@ -1,4 +1,5 @@
 import os
+import random
 from typing import Type, cast
 
 import pigmento
@@ -23,8 +24,7 @@ class SeqTuner(DiscreteCodeTuner):
     num_codes: int
     caller: BaseSeqModel
 
-    @staticmethod
-    def load_processor(data):
+    def load_processor(self, data):
         return load_seq_processor(data)
 
     def load_model(self):
@@ -59,12 +59,22 @@ class SeqTuner(DiscreteCodeTuner):
 
         return train_dfs, valid_dls
 
-    def _evaluate(self, dataloader, steps, metrics, is_test=False):
+    def _evaluate(self, dataloader, steps, metrics, step=1):
+        # easy_decode = (is_test and self.conf.test_easy_decode) or (not is_test and self.conf.easy_decode)
+        decode_mode = self.conf.decode_mode
+        if decode_mode not in ['prod', 'easy', 'hard']:
+            raise ValueError(f'unknown decode mode: {decode_mode}, should be one of prod, easy, hard')
+
         group_list, ranks_list = [], []
         item_index = 0
         for index, batch in tqdm(enumerate(dataloader), total=steps):
-            output = self.caller.decode(batch, width=self.conf.beam_width, prod_mode=self.conf.prod_mode, easy_decode=not is_test or self.conf.easy_decode)
-            if self.conf.prod_mode:
+            if random.random() * step > 1:
+                continue
+
+            self.latency_timer.run('test')
+            output = self.caller.decode(batch, width=self.conf.beam_width, decode_mode=decode_mode)
+            self.latency_timer.run('test')
+            if decode_mode == 'prod':
                 rank = (cast(torch.Tensor, output) + 1).tolist()  # type: list
                 batch_size = len(rank)
                 for ib in range(batch_size):
@@ -80,41 +90,16 @@ class SeqTuner(DiscreteCodeTuner):
                 group_list.extend(groups)
                 ranks_list.extend(rank)
 
-        pool = SeqMetricPool.parse(metrics, num_items=self.num_codes, prod_mode=self.conf.prod_mode)
+        pool = SeqMetricPool.parse(metrics, num_items=self.num_codes, prod_mode=decode_mode == 'prod')
         return pool.calculate(ranks_list, group_list)
 
     def evaluate(self, valid_dls, epoch, metrics=None):
         total_valid_steps = self._get_steps(valid_dls)
-        # if not prod_mode:
-        #     self.conf.beam_width = 10
 
         self.caller.model.eval()
         with torch.no_grad():
             pnt(f'(epoch {epoch}) validating dataset of {len(valid_dls)}: {self.valid_processors[0].get_name()}')
-            # loss_list = []
-            # group_list, ranks_list = [], []
-            # item_index = 0
-            # for index, batch in tqdm(enumerate(valid_dl), total=total_valid_steps[i_dl]):
-            #     output = self.caller.decode(batch, width=self.conf.beam_width, prod_mode=prod_mode)
-            #     if prod_mode:
-            #         rank = (cast(torch.Tensor, output) + 1).tolist()  # type: list
-            #         batch_size = len(rank)
-            #         for ib in range(batch_size):
-            #             local_rank = rank[ib]
-            #             group_list.extend([item_index] * len(local_rank))
-            #             ranks_list.extend(local_rank)
-            #             item_index += 1
-            #     else:
-            #         rank = output  # type: list
-            #         batch_size = len(rank)
-            #         groups = batch[Map.UID_COL].tolist()
-            #         groups = groups[:batch_size]
-            #         group_list.extend(groups)
-            #         ranks_list.extend(rank)
-            #
-            # pool = SeqMetricPool.parse([self.conf.valid_metric], num_items=self.num_codes, prod_mode=prod_mode)
-            # results = pool.calculate(ranks_list, group_list)
-            results = self._evaluate(valid_dls[0], total_valid_steps[0], metrics=[self.conf.valid_metric])
+            results = self._evaluate(valid_dls[0], total_valid_steps[0], metrics=[self.conf.valid_metric], step=self.conf.valid_step)
             metric_name = list(results.keys())[0]
             metric_value = results[metric_name]
             pnt(f'(epoch {epoch}) validation on {self.valid_processors[0].get_name()} dataset with {metric_name}: {metric_value:.4f}')
@@ -146,9 +131,33 @@ class SeqTuner(DiscreteCodeTuner):
 
         self.caller.model.eval()
         with torch.no_grad():
-            results = self._evaluate(test_dl, total_valid_steps[0], metrics=self.conf.metrics.split('+'), is_test=True)
+            results = self._evaluate(test_dl, total_valid_steps[0], metrics=self.conf.metrics.split('+'))
             for metric, value in results.items():
                 pnt(f'{metric}: {value:.4f}')
+
+    def latency(self):
+        self.latency_timer.activate()
+        self.latency_timer.clear()
+
+        self.load_data()
+        processor = self.train_processors[0]
+        preparer = self.PREPARER_CLASS(
+            processor=processor,
+            model=self.caller,
+            conf=self.conf
+        )
+        if not preparer.has_generated:
+            processor.load()
+        test_dl = preparer.load_or_generate(mode='test')
+        total_valid_steps = self._get_steps([test_dl])
+        try:
+            with torch.no_grad():
+                self._evaluate(test_dl, total_valid_steps[0], metrics=self.conf.metrics.split('+'))
+        except KeyboardInterrupt:
+            pass
+
+        st = self.latency_timer.status_dict['test']
+        pnt(f'Total {st.count} steps, avg ms {st.avgms():.4f}')
 
 
 if __name__ == '__main__':
@@ -176,11 +185,12 @@ if __name__ == '__main__':
             eval_interval=0,
             patience=2,
             tuner=None,
-            init_eval=True,
+            init_eval=False,
             beam_width=20,
             prod_mode=0,
             seed=2024,
-            easy_decode=True,
+            decode_mode='prod',
+            valid_step=1,
             align_step=1,
             metrics='+'.join(['NDCG@1', 'NDCG@5', 'NDCG@10', 'NDCG@20', 'MRR', 'Recall@1', 'Recall@5', 'Recall@10', 'Recall@20']),
         ),

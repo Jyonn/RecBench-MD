@@ -1,3 +1,4 @@
+import re
 from typing import Optional
 
 import torch
@@ -10,10 +11,12 @@ from utils import model
 
 class BaseModel:
     KEY = None
+    NUM_LAYERS: int
     PREFIX_PROMPT: str
     SUFFIX_PROMPT: str
     AS_DICT: bool = False
     BIT: int
+    PEFT_TARGET_MODULES = ['q_proj', 'v_proj', 'query', 'value']
 
     def __init__(self, device):
         self.device = device
@@ -51,6 +54,8 @@ class BaseModel:
             return torch.bfloat16
         if self.BIT == 32:
             return torch.float32
+        if self.BIT == 8:
+            return torch.float8
         raise ValueError(f'unsupported bit: {self.BIT}')
 
     def post_init(self):
@@ -65,18 +70,64 @@ class BaseModel:
     def label_tokens(self):
         return torch.tensor([self.no_token, self.yes_token])
 
-    def prepare_model_finetuning(self, conf, inference_mode=False):
+    def find_lora_target_modules(self, tune_from: int, layer_prefix_pattern=r"layers?\.(\d+)"):
+        """
+        Automatically find modules to apply LoRA to (e.g., q_proj, v_proj, query, value),
+        limited to top layers >= tune_from.
+        """
+        import re
+        target_modules = set()
+
+        for name, module in self.model.named_modules():
+            # 尝试提取层号
+            match = re.search(layer_prefix_pattern, name)
+            if match:
+                layer_idx = int(match.group(1))
+                if layer_idx >= tune_from:
+                    # 检查是否是可注入的目标模块
+                    if any(kw in name for kw in self.PEFT_TARGET_MODULES):
+                        target_modules.add(name)
+
+        return list(target_modules)
+
+    def prepare_model_finetuning(self, conf, inference_mode=False, tune_from=0):
+        # tune_from: 0 means finetune all layers, 1 means finetune from the first layer, etc, NUM_LAYERS means no finetuning
+        # tune_from: -1 means finetune the last layer, -2 means finetune the last two layers, -NUM_LAYERS means finetune all layers
+        tune_from = self.NUM_LAYERS + tune_from if tune_from < 0 else tune_from
+
         if not conf.use_lora:
             pnt(f'fully finetuning {self.get_name()} model without lora')
             return
         self.use_lora = True
 
         pnt(f'finetuning {self.get_name()} model with lora ({conf.lora_r}, {conf.lora_alpha}, {conf.lora_dropout})')
+        pnt('tune_from:', tune_from)
+
+        transformer_layers = []
+        for name, _ in self.model.named_modules():
+            if re.search(r'\.layer\.\d+|\.layers\.\d+', name):
+                transformer_layers.append(name)
+
+        # Deduplicate to find all layer blocks
+        unique_layer_prefixes = sorted(set([
+            re.match(r"(.*?layers?\.(\d+))", n).group(1) for n in transformer_layers if re.match(r".*layers?\.(\d+)", n)
+        ]), key=lambda x: int(x.split('.')[-1]))
+
+        # Freeze bottom layers
+        for name, param in self.model.named_parameters():
+            for prefix in unique_layer_prefixes:
+                layer_idx = int(prefix.split('.')[-1])
+                if layer_idx < tune_from and name.startswith(prefix):
+                    param.requires_grad = False
+
+        target_modules = self.find_lora_target_modules(tune_from)
+
         peft_config = LoraConfig(
             inference_mode=inference_mode,
             r=conf.lora_r,
             lora_alpha=conf.lora_alpha,
-            lora_dropout=conf.lora_dropout
+            lora_dropout=conf.lora_dropout,
+            target_modules=target_modules,
         )
         self.model = get_peft_model(self.model, peft_config)
 
@@ -120,6 +171,9 @@ class BaseModel:
     def generate_simple_input_ids(self, content) -> list:
         return self.tokenizer.encode(content or '', add_special_tokens=False)
 
+    def recover(self, input_ids):
+        return self.tokenizer.decode(input_ids)
+
     def _get_scores(self, batch):
         input_ids = batch[Map.IPT_COL].to(self.device)
         length = batch[Map.LEN_COL].to(self.device)
@@ -133,27 +187,44 @@ class BaseModel:
         return scores[:, 1]
 
     def _batch_embed(self, input_ids, length):
-        input_ids = input_ids.to(self.device)
-        length = length.to(self.device)
+        # input_ids = input_ids.to(self.device)
+        # length = length.to(self.device)
+        # max_len = input_ids.size(-1)
+        # attention_mask = torch.arange(max_len).expand(input_ids.size(0), max_len).to(self.device) < length.view(-1, 1)
+        # hidden_states = self.model(input_ids, attention_mask=attention_mask, output_hidden_states=True).hidden_states[-1]  # [B, L, D]
+        # indices = (length - 1).view(-1, 1, 1).expand(-1, 1, hidden_states.size(-1)).to(self.device)
+        # embeddings = torch.gather(hidden_states, 1, indices).squeeze(1)  # [B, D]
+        # 1. 确保数据类型正确
+        input_ids = input_ids.to(self.device).detach()
+        length = length.to(self.device).detach()
+
+        # 2. 计算 attention_mask，确保类型正确
         max_len = input_ids.size(-1)
-        attention_mask = torch.arange(max_len).expand(input_ids.size(0), max_len).to(self.device) < length.view(-1, 1)
-        hidden_states = self.model(input_ids, attention_mask=attention_mask, output_hidden_states=True).hidden_states[-1]  # [B, L, D]
-        indices = (length - 1).view(-1, 1, 1).expand(-1, 1, hidden_states.size(-1)).to(self.device)
-        embeddings = torch.gather(hidden_states, 1, indices).squeeze(1)  # [B, D]
-        # return self.linear(embeddings)
+        attention_mask = (torch.arange(max_len, device=self.device).unsqueeze(0) < length.unsqueeze(1)).long()
+
+        # 3. 获取最后一层的 hidden_states
+        hidden_states = self.model(input_ids, attention_mask=attention_mask, output_hidden_states=True).hidden_states[
+            -1]  # [B, L, D]
+
+        # 4. 计算最后一个有效 token 的索引，并确保索引范围合法
+        indices = torch.clamp(length - 1, min=0).view(-1, 1, 1).expand(-1, 1, hidden_states.size(-1)).to(self.device)
+
+        # 5. 通过 gather 提取最后一个有效 token 的隐藏状态
+        embeddings = torch.gather(hidden_states, 1, indices.long()).squeeze(1)  # [B, D]
         return embeddings
 
     def finetune_embed(self, batch):
         user_embedding = self._batch_embed(input_ids=batch[Map.UIP_COL], length=batch[Map.UIL_COL])  # [B, D]
         item_embedding = self._batch_embed(input_ids=batch[Map.IIP_COL], length=batch[Map.IIL_COL])  # [B, D]
-        # similarity = torch.cosine_similarity(user_embedding, item_embedding, dim=-1)  # [B]
-        similarity = torch.einsum('bd,bd->b', user_embedding, item_embedding)  # [B]
-        return self.embed_loss_fct(similarity, batch[Map.LBL_COL].to(self.device).float())
+        similarity = torch.cosine_similarity(user_embedding, item_embedding, dim=-1)  # [B]
+        # similarity = torch.einsum('bd,bd->b', user_embedding, item_embedding)  # [B]
+        return self.embed_loss_fct(similarity, batch[Map.LBL_COL].to(self.device).to(self.get_dtype()))
 
     def evaluate_embed(self, batch):
         user_embedding = self._batch_embed(input_ids=batch[Map.UIP_COL], length=batch[Map.UIL_COL])  # [B, D]
         item_embedding = self._batch_embed(input_ids=batch[Map.IIP_COL], length=batch[Map.IIL_COL])  # [B, D]
         similarity = torch.cosine_similarity(user_embedding, item_embedding, dim=-1)  # [B]
+        # similarity = torch.einsum('bd,bd->b', user_embedding, item_embedding)  # [B]
         return similarity.detach().cpu().tolist()
 
     def finetune(self, batch, **kwargs):
@@ -169,7 +240,7 @@ class BaseModel:
         input_ids = input_ids.to(self.device)
         input_len = input_ids.size(-1)
         if input_len > self.max_len:
-            return
+            return None
 
         # feed-forward
         with torch.no_grad():
@@ -184,11 +255,13 @@ class BaseModel:
         yes_prob, _ = self.softmax(torch.tensor([yes_score, no_score])).tolist()
         return yes_prob
 
-    def embed(self, content, func='last') -> Optional[torch.Tensor]:
+    def embed(self, content, func='last', truncate=False, mask=False):
         assert func in ['last', 'pool']
-        input_ids = self.generate_input_ids(content, wrap_ask=False)
+        input_ids = BaseModel.generate_input_ids(self, content, wrap_ask=False)
         input_ids = input_ids.to(self.device)
 
+        if truncate:
+            input_ids = input_ids[:, :self.max_len]
         input_len = input_ids.size(-1)
         if input_len > self.max_len:
             return

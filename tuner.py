@@ -3,6 +3,7 @@ import hashlib
 import json
 import os.path
 import random
+import sys
 
 import numpy as np
 import pandas as pd
@@ -24,6 +25,7 @@ from utils.function import load_processor
 from utils.gpu import GPU
 from utils.metrics import MetricPool
 from utils.monitor import Monitor
+from utils.timer import Timer
 
 
 class Tuner:
@@ -53,6 +55,8 @@ class Tuner:
         self.log_dir = os.path.join('tuning', self.model)
         os.makedirs(self.log_dir, exist_ok=True)
 
+        pnt(f'python {" ".join(sys.argv)}')
+
         self.meta = self.get_meta()
         self.sign = self.get_signature()
 
@@ -62,7 +66,7 @@ class Tuner:
         pigmento.add_log_plugin(self.log_path)
 
         self.base_model = self.caller = self.load_model()  # type: BaseModel
-        self.caller.prepare_model_finetuning(self.conf, inference_mode=False)
+        self.caller.prepare_model_finetuning(self.conf, inference_mode=False, tune_from=self.conf.tune_from)
         if self.conf.tuner:
             self.caller.load(self.conf.tuner.replace('.json', '.pt'))
         self.caller.post_init()
@@ -75,6 +79,7 @@ class Tuner:
         )
 
         self.monitor = Monitor(patience=self.conf.patience)
+        self.latency_timer = Timer(activate=False)
 
     def load_processor(self, data):
         return load_processor(data)
@@ -143,7 +148,9 @@ class Tuner:
                 pnt(f'(epoch {epoch}) validating {i_dl + 1}-th dataset of {len(valid_dls)}: {self.valid_processors[i_dl].get_name()}')
                 score_list, label_list, group_list = [], [], []
                 for index, batch in tqdm(enumerate(valid_dl), total=total_valid_steps[i_dl]):
+                    self.latency_timer.run('test')
                     scores = self.caller.evaluate(batch)
+                    self.latency_timer.run('test')
                     labels = batch[Map.LBL_COL].tolist()
                     groups = batch[Map.UID_COL].tolist()
 
@@ -205,6 +212,19 @@ class Tuner:
 
         return train_dfs, valid_dls
 
+    def load_test_data(self):
+        test_dls = []
+        for processor in self.valid_processors:
+            preparer = self.PREPARER_CLASS(
+                processor=processor,
+                model=self.caller,
+                conf=self.conf
+            )
+            if not preparer.has_generated:
+                processor.load()
+            test_dls.append(preparer.load_or_generate(mode='test'))
+        return test_dls
+
     def alignment(self):
         if not issubclass(self.PREPARER_CLASS, DiscreteCodePreparer):
             return
@@ -262,9 +282,9 @@ class Tuner:
         if self.conf.init_eval:
             self.evaluate(valid_dls, -1)
 
-        for epoch in range(100):
+        epoch = 0
+        while True:
             self.caller.model.train()
-
             self.alignment()
 
             accumulate_step = 0
@@ -286,8 +306,36 @@ class Tuner:
                         pnt(f'please evaluate the model by: {self.test_command}')
                         return
 
+            epoch += 1
+
+    def latency(self):
+        self.latency_timer.activate()
+        self.latency_timer.clear()
+        train_dfs, valid_dls = self.load_data()
+
+        try:
+            self.evaluate(valid_dls, 0)
+        except KeyboardInterrupt:
+            pass
+        st = self.latency_timer.status_dict['test']
+        pnt(f'Total {st.count} steps, avg ms {st.avgms():.4f}')
+
+    def test(self):
+        raise NotImplemented
+
+    def dev(self):
+        raise NotImplemented
+
     def run(self):
-        self.finetune()
+        if self.conf.latency:
+            self.latency()
+            return
+        if self.conf.mode == 'finetune':
+            self.finetune()
+        if self.conf.mode == 'dev':
+            self.dev()
+        if self.conf.mode == 'test':
+            self.test()
 
 
 if __name__ == '__main__':
@@ -300,6 +348,8 @@ if __name__ == '__main__':
     configuration = ConfigInit(
         required_args=['model', 'train', 'valid'],
         default_args=dict(
+            type='tuner',
+            mode='finetune',
             slicer=-20,
             gpu=None,
             valid_metric='GAUC',
@@ -309,13 +359,14 @@ if __name__ == '__main__':
             lora_r=32,
             lora_alpha=128,
             lora_dropout=0.1,
-            lr=0.00001,
+            lr=0.0001,
             acc_batch=1,
             eval_interval=0,
             patience=2,
             tuner=None,
-            init_eval=True,
+            init_eval=False,
             align_step=1.0,
+            tune_from=0,
         ),
         makedirs=[]
     ).parse()

@@ -1,18 +1,9 @@
-import os.path
-from typing import Optional
-
-import pandas as pd
-from UniTok import Vocab
 from pigmento import pnt
-from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from loader.dataset import Dataset
 from loader.embed_dataset import EmbedDataset
 from loader.map import Map
 from loader.preparer import Preparer
-from model.base_model import BaseModel
-from process.base_processor import BaseProcessor
 
 
 class EmbedPreparer(Preparer):
@@ -21,8 +12,8 @@ class EmbedPreparer(Preparer):
     def get_primary_signature(self):
         return f'{self.processor.get_name()}_{self.model.get_name()}_embed'
 
-    def load_datalist(self):
-        items = self.tokenize_items()
+    def load_datalist(self, source='finetune'):
+        items = self.tokenize_items(source=source)
         line, numbers, user, item, prefix, suffix = self.model.get_special_tokens()
 
         datalist = []
@@ -30,8 +21,8 @@ class EmbedPreparer(Preparer):
         max_sequence_len = 0
         pnt(f'preprocessing on the {self.processor.get_name()} dataset')
         for index, data in tqdm(
-                enumerate(self.processor.generate(slicer=self.conf.slicer, source='finetune', id_only=True)),
-                total=len(self.processor.get_source_set(source='finetune'))
+                enumerate(self.processor.generate(slicer=self.conf.slicer, source=source, id_only=True)),
+                total=len(self.processor.get_source_set(source=source))
         ):
             uid, iid, history, label = data
 

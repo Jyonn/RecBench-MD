@@ -35,7 +35,7 @@ class BertModel(BaseModel, abc.ABC):
         if wrap_ask:
             content = self.PREFIX_PROMPT + content + self.SUFFIX_PROMPT
         input_ids = self.tokenizer.tokenize(content)
-        input_ids = self.tokenizer.convert_tokens_to_ids(input_ids) + [self.mask_token]
+        input_ids = self.tokenizer.convert_tokens_to_ids(input_ids)
         return torch.tensor(input_ids).unsqueeze(0)
 
     def get_special_tokens(self):
@@ -46,7 +46,9 @@ class BertModel(BaseModel, abc.ABC):
 
 class BertBaseModel(BertModel):
     KEY = 'bert-base-uncased'
+    NUM_LAYERS = 12
 
 
 class BertLargeModel(BertModel):
     KEY = 'bert-large-uncased'
+    NUM_LAYERS = 24

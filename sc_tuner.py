@@ -16,7 +16,7 @@ from process.base_processor import BaseProcessor
 from tuner import Tuner
 from utils.code import get_code_indices
 from utils.config_init import ConfigInit
-from utils.function import seeding, load_processor, load_sero_processor
+from utils.function import seeding, load_processor
 from utils.metrics import MetricPool
 
 os.environ['TOKENIZERS_PARALLELISM'] = 'false'
@@ -27,15 +27,8 @@ class DiscreteCodeTuner(Tuner):
 
     num_codes: int
 
-    # def __init__(self, **kwargs):
-    #     super().__init__(**kwargs)
-    #
-    #     if not self.conf.gist:
-    #         self.caller = cast(BaseDiscreteCodeModel, self.caller)
-    #         self.caller.load_from_gist(self.conf.gist)
-
     def load_processor(self, data):
-        return load_sero_processor(data) if self.conf.sero else load_processor(data)  # type: BaseProcessor
+        return load_processor(data)  # type: BaseProcessor
 
     def load_model(self):
         assert len(self.processors) == 1
@@ -69,7 +62,9 @@ class DiscreteCodeTuner(Tuner):
         with torch.no_grad():
             score_list, label_list, group_list = [], [], []
             for index, batch in tqdm(enumerate(test_dl), total=total_valid_steps[0]):
+                self.latency_timer.run('test')
                 scores = self.caller.evaluate(batch)
+                self.latency_timer.run('test')
                 labels = batch[Map.LBL_COL].tolist()
                 groups = batch[Map.UID_COL].tolist()
 
@@ -82,7 +77,22 @@ class DiscreteCodeTuner(Tuner):
             for metric, value in results.items():
                 pnt(f'{metric}: {value:.4f}')
 
+    def latency(self):
+        self.latency_timer.activate()
+        self.latency_timer.clear()
+
+        try:
+            self.test()
+        except KeyboardInterrupt:
+            pass
+
+        st = self.latency_timer.status_dict['test']
+        pnt(f'Total {st.count} steps, avg ms {st.avgms():.4f}')
+
     def run(self):
+        if self.conf.latency:
+            self.latency()
+            return
         if self.conf.mode == 'train':
             self.finetune()
         elif self.conf.mode == 'test':
@@ -107,7 +117,6 @@ if __name__ == '__main__':
         required_args=['model', 'data', 'code_path'],
         default_args=dict(
             gist=None,
-            sero=False,
             mode='train',
             slicer=-20,
             gpu=None,
@@ -123,10 +132,11 @@ if __name__ == '__main__':
             eval_interval=0,
             patience=2,
             tuner=None,
-            init_eval=True,
+            init_eval=False,
             metrics='+'.join(['GAUC', 'NDCG@1', 'NDCG@5', 'MRR', 'F1', 'Recall@1', 'Recall@5']),
             alignment=True,
             align_step=1,
+            latency=False,
         ),
         makedirs=[]
     ).parse()

@@ -1,6 +1,5 @@
 import pigmento
 from pigmento import pnt
-from tqdm import tqdm
 
 from utils.config_init import ConfigInit
 from utils.data import get_data_dir

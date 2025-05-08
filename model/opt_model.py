@@ -27,7 +27,9 @@ class OPTModel(BaseModel, abc.ABC):
 
 class OPT1BModel(OPTModel):
     KEY = 'facebook/opt-1.3b'
+    NUM_LAYERS = 24
 
 
 class OPT350MModel(OPTModel):
     KEY = 'facebook/opt-350m'
+    NUM_LAYERS = 24
