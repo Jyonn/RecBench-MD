@@ -1,4 +1,4 @@
-# RecBench
+# RecBench-MD
 
 > Evaluating Recabilities of Foundation Models: A Multi-Domain, Multi-Dataset Benchmark
 
